@@ -21,25 +21,30 @@ npm test                  # engine fuzz test + end-to-end server test
 Sign in as `mcguiredonavan8@gmail.com` with `ADMIN_PASSWORD` and the Admin button appears.
 The admin email is reserved: nobody can register it, even with different capitalization.
 
-## Host it (works entirely from a phone)
+## Host it for free (works entirely from a phone)
 
 | Part | Where | Cost |
 |---|---|---|
 | Game page (`docs/`) | GitHub Pages | Free |
-| Game server (`server.js`) | Railway, deployed from the GitHub repo | Hobby plan, about $5/month |
+| Game server | Koyeb free instance (deploys from GitHub) | Free |
+| Saved data (accounts, credits, tournaments) | Neon free Postgres (`DATABASE_URL`) | Free |
 
-The server also serves the game page itself, so the Railway address works on its own too.
-Full phone steps are in the chat where this was built; short version:
+Free servers have no permanent disk, so with `DATABASE_URL` set the game keeps its whole state in one
+Postgres row and reloads it on every start (`start.js`, `lib/pgsync.js`).
 
-1. GitHub: new **public** repo `riverboat21` with a README. Add file → Create new file →
-   `.github/workflows/unpack.yml` (the unzip workflow). Then Add file → Upload files → `riverboat21.zip`.
-   The workflow unzips it into the repo in about a minute.
-2. Railway: New Project → Deploy from GitHub repo → `riverboat21`. Add a Volume mounted at `/app/data`.
-   Variables: `JWT_SECRET`, `ADMIN_PASSWORD`, `CLIENT_URL`, `PUBLIC_URL`, PayPal keys. Settings → Networking → Generate Domain.
-3. GitHub: edit `docs/config.js` and put the Railway address in. Settings → Pages → Deploy from a branch → `main` / `/docs`.
+Free-tier trade-offs: the server sleeps after about an hour with no visitors, and the next visitor waits
+roughly 30–60 seconds while it wakes. Hands in progress when it sleeps are cancelled and their bets refunded
+automatically. Tournaments that ended while it slept pay out within 15 seconds of waking.
 
-Every commit to `main` redeploys the server on Railway automatically. Keep it at 1 replica (tables live in memory).
-Any other Docker host works too: `docker run -d -p 3000:3000 --env-file .env -v rb21data:/app/data <image>`.
+Setup summary (full phone steps are in the chat where this was built):
+1. GitHub: public repo, paste `.github/workflows/unpack.yml`, upload `riverboat21.zip`.
+2. Neon: create a project, copy the connection string.
+3. Koyeb: Create Web Service → GitHub → this repo → Dockerfile → Free instance, port 8000.
+   Variables: `DATABASE_URL`, `PORT=8000`, `JWT_SECRET`, `ADMIN_PASSWORD`, `CLIENT_URL`, `PUBLIC_URL`, PayPal keys.
+4. GitHub: put the Koyeb address in `docs/config.js`, then Settings → Pages → `main` / `/docs`.
+
+Paid, always-on alternative: Railway (`railway.json` included, about $5/month). Any Docker host works;
+with a disk you can skip `DATABASE_URL` and use `DATA_FILE`.
 
 ## Payments (PayPal Checkout)
 

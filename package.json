@@ -4,8 +4,8 @@
   "description": "Online multiplayer blackjack with play-money credits, ads, credit packs and tournaments",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "node test/engine.test.js && node test/smoke.test.js"
+    "start": "node start.js",
+    "test": "node test/engine.test.js && node test/smoke.test.js && node test/pg.test.js"
   },
   "engines": {
     "node": ">=18"
@@ -15,6 +15,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.0",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {

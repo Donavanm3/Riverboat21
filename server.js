@@ -31,6 +31,7 @@ const paypal = process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET
   : null;
 
 const store = new Store(process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json'));
+store.remote = global.__RB21_REMOTE || null; // set by start.js when DATABASE_URL is used
 const D = store.data;
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 const isAdmin = (u) => !!u && u.email === ADMIN_EMAIL;
@@ -305,7 +306,11 @@ io.on('connection', (socket) => {
   });
 });
 
-const shutdown = () => { store.flush(); process.exit(0); };
+const shutdown = async () => {
+  store.flush();
+  if (store.remote) { await store.remote.flush(); await store.remote.close().catch(() => {}); }
+  process.exit(0);
+};
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 
 if (require.main === module) server.listen(PORT, () => console.log(`Blackjack running on ${PUBLIC_URL}`));
