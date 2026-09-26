@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Riverboat 21 — play-money blackjack</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🂡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;800&family=Rye&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="logo" href="#" data-go="lobby">Riverboat 21</a>
+  <nav id="nav" hidden>
+    <span class="purse" title="Play credits"><b id="credits">0</b> credits</span>
+    <button class="ghost" id="btnDaily">Daily bonus</button>
+    <button class="ghost" id="btnAd" hidden>Watch ad</button>
+    <button class="ghost" id="btnRefill" hidden>Refill</button>
+    <button class="brass" id="btnStore">Get credits</button>
+    <button class="ghost" id="btnAdmin" hidden>Admin</button>
+    <button class="ghost" id="btnLogout">Sign out</button>
+  </nav>
+</header>
+
+<main>
+  <section id="v-auth" class="view narrow">
+    <h1 class="display">Pull up a chair.</h1>
+    <p class="lede">Multiplayer blackjack on a riverboat felt. Everything here is played with free credits that have no cash value.</p>
+    <form id="authForm" class="panel">
+      <div class="tabs"><button type="button" data-mode="login" class="on">Sign in</button><button type="button" data-mode="register">Create account</button></div>
+      <label>Email<input name="email" type="email" autocomplete="email" required></label>
+      <label class="reg" hidden>Display name<input name="name" maxlength="20" autocomplete="nickname"></label>
+      <label>Password<input name="password" type="password" minlength="8" autocomplete="current-password" required></label>
+      <button class="brass wide" id="authSubmit">Sign in</button>
+      <p class="err" id="authErr"></p>
+      <p class="fine">You must be 18 or older to play. Credits can’t be cashed out or traded for money or prizes.</p>
+    </form>
+  </section>
+
+  <section id="v-lobby" class="view" hidden>
+    <h2>Tables</h2>
+    <div id="tableList" class="tables"></div>
+    <h2>Tournaments</h2>
+    <p class="sub">Same starting stack, same number of hands. Biggest stack when the clock runs out takes it.</p>
+    <div id="tourList" class="tours"></div>
+  </section>
+
+  <section id="v-table" class="view" hidden>
+    <div class="felt">
+      <div class="felt-head"><button class="ghost sm" data-go="lobby">Lobby</button><span id="tName"></span><span id="tStatus" class="status"></span></div>
+      <div class="dealer"><div class="hand" id="dealerHand"></div><div class="total" id="dealerTotal"></div></div>
+      <p class="rule">Blackjack pays 3 to 2 · Dealer stands on 17</p>
+      <div class="seats" id="seats"></div>
+    </div>
+    <div class="controls" id="controls"></div>
+  </section>
+
+  <section id="v-tour" class="view" hidden>
+    <div class="felt">
+      <div class="felt-head"><button class="ghost sm" data-go="lobby">Lobby</button><span id="trName"></span><span id="trStatus" class="status"></span></div>
+      <div class="dealer"><div class="hand" id="trDealer"></div><div class="total" id="trDealerTotal"></div></div>
+      <div class="solo"><div class="hands" id="trHands"></div></div>
+    </div>
+    <div class="controls" id="trControls"></div>
+    <div class="board" id="trBoard"></div>
+  </section>
+
+  <section id="v-admin" class="view" hidden>
+    <h2>Admin</h2>
+    <div class="grid2">
+      <form id="tourForm" class="panel">
+        <h3>Host a tournament</h3>
+        <label>Name<input name="name" required maxlength="60"></label>
+        <label>Prize
+          <select name="prizeType">
+            <option value="credits">Play credits</option>
+            <option value="cash">Real money (you pay winners)</option>
+            <option value="item">Physical item or gift card (you ship it)</option>
+          </select>
+        </label>
+        <div class="f-credits"><label>House-added prize (credits)<input name="prizeCredits" type="number" min="0" value="5000"></label></div>
+        <div class="f-real" hidden>
+          <div class="row"><label>1st place prize<input name="p1d" maxlength="200" placeholder="$100 PayPal / Xbox Series S"></label><label>Value ($)<input name="p1v" type="number" min="0" step="0.01"></label></div>
+          <div class="row"><label>2nd place prize<input name="p2d" maxlength="200" placeholder="optional"></label><label>Value ($)<input name="p2v" type="number" min="0" step="0.01"></label></div>
+          <div class="row"><label>3rd place prize<input name="p3d" maxlength="200" placeholder="optional"></label><label>Value ($)<input name="p3v" type="number" min="0" step="0.01"></label></div>
+          <label>Official rules<textarea name="rules" rows="6" maxlength="4000"></textarea></label>
+        </div>
+        <label>Entry
+          <select name="entryType">
+            <option value="free">Free</option>
+            <option value="credits">Costs play credits</option>
+            <option value="paid">Costs real money (PayPal)</option>
+          </select>
+        </label>
+        <p class="fine f-real" hidden>Real prizes are always free to enter. Paid entry is only for credit-prize tournaments.</p>
+        <div class="f-fee"><label>Entry fee (credits)<input name="entryFee" type="number" min="1" value="500"></label></div>
+        <div class="f-price" hidden><label>Entry price ($)<input name="entryPrice" type="number" min="0.5" step="0.01" value="1.99"></label></div>
+        <div class="row"><label>Starting stack<input name="startingStack" type="number" value="1000"></label>
+        <label>Hands<input name="hands" type="number" value="30"></label></div>
+        <div class="row"><label>Min bet<input name="minBet" type="number" value="10"></label>
+        <label>Max bet<input name="maxBet" type="number" value="500"></label></div>
+        <div class="row"><label>Max players<input name="maxEntrants" type="number" value="500"></label>
+        <label>Ends at<input name="endsAt" type="datetime-local" required></label></div>
+        <button class="brass wide">Create tournament</button>
+        <p class="err" id="tourErr"></p>
+      </form>
+      <div class="panel">
+        <h3>Players</h3>
+        <input id="userQ" placeholder="Search email or name">
+        <div id="userList" class="list"></div>
+        <h3>Open tournaments</h3>
+        <div id="adminTours" class="list"></div>
+        <h3>Recent purchases</h3>
+        <div id="payList" class="list"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="adBanner" class="ad-banner" hidden></div>
+<footer class="foot">Play-money game for entertainment. Credits have no cash value and can’t be withdrawn.</footer>
+
+<dialog id="dlg"><div id="dlgBody"></div></dialog>
+<div id="toast" class="toast" role="status"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
