@@ -1,0 +1,23 @@
+name: Unpack upload
+on:
+  push:
+    paths: ['**.zip']
+permissions:
+  contents: write
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -e
+          zipfile=$(git ls-files '*.zip' | head -n1)
+          [ -n "$zipfile" ] || exit 0
+          tmp=$(mktemp -d); unzip -q "$zipfile" -d "$tmp"; src="$tmp"
+          if [ "$(ls -A "$tmp" | wc -l)" -eq 1 ] && [ -d "$tmp/$(ls -A "$tmp")" ]; then src="$tmp/$(ls -A "$tmp")"; fi
+          rm -rf "$src/.github" "$src/node_modules"
+          cp -a "$src/." .
+          git rm -q "$zipfile"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -m "Unpack $zipfile" && git push
