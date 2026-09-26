@@ -1,0 +1,28 @@
+# Free setup on Render: Dashboard > New > Blueprint > pick this repo.
+# Game data is saved in your free Neon database (DATABASE_URL), since free servers have no disk.
+services:
+  - type: web
+    name: riverboat21
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/config
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: mcguiredonavan8@gmail.com
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_ENV
+        value: sandbox

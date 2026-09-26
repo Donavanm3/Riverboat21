@@ -26,22 +26,22 @@ The admin email is reserved: nobody can register it, even with different capital
 | Part | Where | Cost |
 |---|---|---|
 | Game page (`docs/`) | GitHub Pages | Free |
-| Game server | Koyeb free instance (deploys from GitHub) | Free |
+| Game server | Render free web service (deploys from GitHub) | Free |
 | Saved data (accounts, credits, tournaments) | Neon free Postgres (`DATABASE_URL`) | Free |
 
 Free servers have no permanent disk, so with `DATABASE_URL` set the game keeps its whole state in one
 Postgres row and reloads it on every start (`start.js`, `lib/pgsync.js`).
 
-Free-tier trade-offs: the server sleeps after about an hour with no visitors, and the next visitor waits
-roughly 30–60 seconds while it wakes. Hands in progress when it sleeps are cancelled and their bets refunded
+Free-tier trade-offs: the server sleeps after 15 minutes with no visitors, and the next visitor waits
+about a minute while it wakes. Render gives 750 free hours a month, enough for one always-used service. Hands in progress when it sleeps are cancelled and their bets refunded
 automatically. Tournaments that ended while it slept pay out within 15 seconds of waking.
 
 Setup summary (full phone steps are in the chat where this was built):
 1. GitHub: public repo, paste `.github/workflows/unpack.yml`, upload `riverboat21.zip`.
 2. Neon: create a project, copy the connection string.
-3. Koyeb: Create Web Service → GitHub → this repo → Dockerfile → Free instance, port 8000.
-   Variables: `DATABASE_URL`, `PORT=8000`, `JWT_SECRET`, `ADMIN_PASSWORD`, `CLIENT_URL`, `PUBLIC_URL`, PayPal keys.
-4. GitHub: put the Koyeb address in `docs/config.js`, then Settings → Pages → `main` / `/docs`.
+3. Render: New → Blueprint → this repo (reads `render.yaml`, Free plan). Fill in `DATABASE_URL`,
+   `ADMIN_PASSWORD`, `CLIENT_URL`, `PUBLIC_URL`, PayPal keys. Render sets `PORT` itself.
+4. GitHub: put the Render address in `docs/config.js`, then Settings → Pages → `main` / `/docs`.
 
 Paid, always-on alternative: Railway (`railway.json` included, about $5/month). Any Docker host works;
 with a disk you can skip `DATABASE_URL` and use `DATA_FILE`.
