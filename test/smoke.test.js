@@ -65,6 +65,10 @@ let server, store;
   // CORS for the GitHub Pages front end
   let cr = await fetch(base + '/api/config', { headers: { Origin: 'https://deer.github.io' } });
   assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'https://deer.github.io');
+  cr = await fetch(base + '/api/config', { headers: { Origin: 'https://anyone.github.io' } });
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'https://anyone.github.io', 'GitHub Pages allowed');
+  cr = await fetch(base + '/api/config', { headers: { Origin: 'https://x.github.io.evil.example' } });
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), null);
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://evil.example' } });
   assert.strictEqual(cr.headers.get('access-control-allow-origin'), null);
 
@@ -185,6 +189,30 @@ let server, store;
   assert.strictEqual(r.body.winners[0].prizeStatus, 'sent');
   const pub = (await api('/api/tournaments', null, B.token)).body.find((t) => t.id === cash.body.id);
   assert.strictEqual(pub.winners[0].email, undefined, 'emails hidden from players');
+
+  // Casino games over HTTP: credits always balance
+  const wait = () => new Promise((r) => setTimeout(r, 320));
+  const bal = () => store.data.users[A.user.id].credits;
+  let before2 = bal();
+  let g = await api('/api/games/roulette', { bets: [{ type: 'red', amount: 10 }, { type: 'straight', value: 7, amount: 5 }] }, A.token);
+  assert.strictEqual(g.status, 200, JSON.stringify(g.body)); assert.strictEqual(bal(), before2 - 15 + g.body.payout);
+  assert.strictEqual((await api('/api/games/slots', { bet: 5 }, A.token)).status, 400, 'rate limited');
+  await wait(); before2 = bal();
+  g = await api('/api/games/slots', { bet: 25 }, A.token); assert.strictEqual(g.status, 200); assert.strictEqual(bal(), before2 - 25 + g.body.payout);
+  await wait(); before2 = bal();
+  g = await api('/api/games/baccarat', { bets: { banker: 20, tie: 5 } }, A.token); assert.strictEqual(g.status, 200); assert.strictEqual(bal(), before2 - 25 + g.body.payout);
+  await wait(); before2 = bal();
+  g = await api('/api/games/poker/deal', { bet: 10 }, A.token); assert.strictEqual(g.body.hand.length, 5);
+  assert.strictEqual(bal(), before2 - 10);
+  await wait();
+  assert.strictEqual((await api('/api/games/poker/deal', { bet: 10 }, A.token)).status, 400, 'one hand at a time');
+  assert.strictEqual((await api('/api/games/poker', null, A.token)).body.pending, true);
+  g = await api('/api/games/poker/draw', { holds: [true, true, false, false, false] }, A.token);
+  assert.strictEqual(g.status, 200); assert.strictEqual(bal(), before2 - 10 + g.body.payout);
+  assert.strictEqual(store.data.users[A.user.id].escrow, 0);
+  assert.strictEqual((await api('/api/games/slots', { bet: 1e9 }, A.token)).status, 400);
+  await wait();
+  assert.strictEqual((await api('/api/games/roulette', { bets: [{ type: 'red', amount: 99999999 }] }, A.token)).status, 400);
 
   // Admin credit adjust and suspend
   r = await api(`/api/admin/users/${B.user.id}/credits`, { amount: 5000 }, admin.token); assert.strictEqual(r.status, 200);

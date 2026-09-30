@@ -1,0 +1,15 @@
+{
+  "name": "Riverboat 21",
+  "short_name": "Riverboat 21",
+  "description": "Blackjack, roulette, slots, video poker and baccarat with play-money credits. Works offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1b0a0e",
+  "theme_color": "#2e0d14",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

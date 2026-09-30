@@ -49,7 +49,10 @@ store.save();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: (origin, cb) => cb(null, !origin || ALLOWED_ORIGINS.has(origin)), methods: ['GET', 'POST'] } });
+// GitHub Pages sites (https://NAME.github.io) are always allowed, so the page works there with no extra setup.
+// Safe because sign-in uses a bearer token in the page's own storage, not cookies.
+const originAllowed = (origin) => ALLOWED_ORIGINS.has(origin) || /^https:\/\/[a-z0-9-]+\.github\.io$/i.test(origin);
+const io = new Server(server, { cors: { origin: (origin, cb) => cb(null, !origin || originAllowed(origin)), methods: ['GET', 'POST'] } });
 
 const wallet = new Wallet(store, (uid) => {
   const u = D.users[uid];
@@ -63,7 +66,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
+  if (origin && originAllowed(origin)) {
     res.set('Access-Control-Allow-Origin', origin);
     res.set('Vary', 'Origin');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -163,6 +166,16 @@ app.post('/api/ads/reward', auth, wrap((req) => {
 }));
 
 // ---- store ----
+// ---- casino games (roulette, slots, video poker, baccarat); logic shared with the offline app ----
+const games = require('./lib/games-service').createGames(wallet);
+app.get('/api/games/info', (req, res) => res.json(games.info()));
+app.post('/api/games/roulette', auth, wrap((req) => games.roulette(req.user.id, req.body)));
+app.post('/api/games/slots', auth, wrap((req) => games.slots(req.user.id, req.body)));
+app.post('/api/games/baccarat', auth, wrap((req) => games.baccarat(req.user.id, req.body)));
+app.get('/api/games/poker', auth, wrap((req) => games.pokerState(req.user.id)));
+app.post('/api/games/poker/deal', auth, wrap((req) => games.pokerDeal(req.user.id, req.body)));
+app.post('/api/games/poker/draw', auth, wrap((req) => games.pokerDraw(req.user.id, req.body)));
+
 // ---- tournaments ----
 app.get('/api/tournaments', auth, wrap((req) => Object.values(tours.all())
   .filter((t) => t.status !== 'cancelled')

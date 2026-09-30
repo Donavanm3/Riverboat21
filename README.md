@@ -1,6 +1,6 @@
 # Riverboat 21
 
-Online multiplayer blackjack played entirely with play-money credits.
+Online multiplayer blackjack plus roulette, slots, video poker and baccarat, played entirely with play-money credits.
 
 - 4 live tables, 5 seats each, server-authoritative dealing (crypto-random 6-deck shoe)
 - Accounts (email + password), 1,000 free credits on sign-up
@@ -21,30 +21,41 @@ npm test                  # engine fuzz test + end-to-end server test
 Sign in as `mcguiredonavan8@gmail.com` with `ADMIN_PASSWORD` and the Admin button appears.
 The admin email is reserved: nobody can register it, even with different capitalization.
 
-## Host it for free (works entirely from a phone)
+## Where it runs
 
 | Part | Where | Cost |
 |---|---|---|
-| Game page (`docs/`) | GitHub Pages | Free |
-| Game server | Render free web service (deploys from GitHub) | Free |
-| Saved data (accounts, credits, tournaments) | Neon free Postgres (`DATABASE_URL`) | Free |
+| **Website players visit** (`docs/`) | **GitHub Pages**: `https://YOUR-NAME.github.io/riverboat21/` | Free |
+| Online engine (accounts, multiplayer, PayPal, tournaments) | Render free web service, runs in the background | Free |
+| Saved online data | Neon free Postgres (`DATABASE_URL`) | Free |
 
-Free servers have no permanent disk, so with `DATABASE_URL` set the game keeps its whole state in one
-Postgres row and reloads it on every start (`start.js`, `lib/pgsync.js`).
+GitHub can only host static files, so the online engine still runs on Render, but players never need
+its address: `docs/config.js` points the GitHub page at it, and the server accepts any `*.github.io` origin.
 
-Free-tier trade-offs: the server sleeps after 15 minutes with no visitors, and the next visitor waits
-about a minute while it wakes. Render gives 750 free hours a month, enough for one always-used service. Hands in progress when it sleeps are cancelled and their bets refunded
-automatically. Tournaments that ended while it slept pay out within 15 seconds of waking.
+**Turn on the GitHub site:** repo → Settings → Pages → Deploy from a branch → `main` / `/docs`.
+If your Render address isn't `https://riverboat21.onrender.com`, change it in `docs/config.js`.
 
-Setup summary (full phone steps are in the chat where this was built):
-1. GitHub: public repo, paste `.github/workflows/unpack.yml`, upload `riverboat21.zip`.
-2. Neon: create a project, copy the connection string.
-3. Render: New → Blueprint → this repo (reads `render.yaml`, Free plan). Fill in `DATABASE_URL`,
-   `ADMIN_PASSWORD`, `CLIENT_URL`, `PUBLIC_URL`, PayPal keys. Render sets `PORT` itself.
-4. GitHub: put the Render address in `docs/config.js`, then Settings → Pages → `main` / `/docs`.
+### Offline mode and app install (no server needed)
 
-Paid, always-on alternative: Railway (`railway.json` included, about $5/month). Any Docker host works;
-with a disk you can skip `DATABASE_URL` and use `DATA_FILE`.
+The page is an installable app (PWA). Players can add it to their home screen or desktop, and
+**Play offline** runs blackjack and all casino games entirely on the device with practice credits
+saved in the browser. It uses the exact same engine: `docs/engine.js` is generated from `lib/`
+by `npm run build` (the tests fail if it is out of date). If the online server can't be reached,
+the sign-in screen offers offline play automatically. Offline mode has no accounts, store, ads,
+tournaments or multiplayer, since those need the online engine.
+
+### Server setup (Render, free)
+
+1. Neon: create a project, copy the connection string.
+2. Render: New → Blueprint → this repo (reads `render.yaml`, Free plan). Fill in `DATABASE_URL`,
+   `ADMIN_PASSWORD`, `PUBLIC_URL`, PayPal keys. Render sets `PORT` itself.
+
+Free-tier trade-offs: the engine sleeps after 15 minutes with no visitors, and the next visitor waits
+about a minute while it wakes (the sign-in screen offers offline play meanwhile). Hands in progress when it
+sleeps are refunded automatically.
+
+Uploading from a phone: create `.github/workflows/unpack.yml` (the unzip workflow) once, then upload
+`riverboat21.zip` with Add file → Upload files; the workflow unzips it into the repo.
 
 ## Payments (PayPal Checkout)
 
@@ -93,6 +104,20 @@ I'm not a lawyer; get the rules checked before running prizes of significant val
 
 Paid-entry credit tournaments go through PayPal; the entry is added only after the server captures the payment.
 If the tournament filled or closed during checkout, or you cancel it, entries are refunded automatically.
+
+## Other games
+
+All share the same credit wallet and are decided on the server (`lib/casino.js`); the browser only animates the result.
+
+| Game | Rules | Long-run return |
+|---|---|---|
+| Roulette | European single zero; straight 35:1, dozens/columns 2:1, red/black/odd/even/high/low 1:1 | 97.3% |
+| Slots | 3×3, 5 lines (rows + diagonals), weighted symbols; paytable in `lib/casino.js` | 96.5% (exact, tested) |
+| Video Poker | Jacks or Better 9/6 paytable, royal 800× | ~99.5% with perfect holds |
+| Baccarat | 8 decks, standard third-card rules; Banker pays 0.95:1, Tie 8:1 | Banker 98.9%, Player 98.8% |
+
+A video-poker bet sits in escrow until the draw; if the server restarts in between, it is refunded.
+Plays are limited to about 3 per second per player.
 
 ## Rules
 

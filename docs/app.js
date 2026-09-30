@@ -9,11 +9,14 @@ const RESULT = { win: 'Win', blackjack: 'Blackjack!', push: 'Push', lose: 'Lose'
 const API = String(window.RB21_API || '').replace(/\/$/, '');
 const money = (c) => '$' + (c / 100).toFixed(2);
 let token = localStorage.getItem('rb21_token');
+let offline = localStorage.getItem('rb21_mode') === 'offline';
+const local = () => window.RB21Offline.init();
 let me = null, cfg = null, socket = null, table = null, tour = null, tourBet = 0;
 let authMode = 'login';
 
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
 async function api(path, body, method) {
+  if (offline) return local().api(path, body, method);
   const res = await fetch(API + path, { method: method || (body ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && token) { logout(); throw new Error('Signed out'); }
@@ -29,6 +32,7 @@ function show(v) {
   if (v !== 'tour') tour = null;
   if (v === 'lobby') loadTours();
   if (v === 'admin') loadAdmin();
+  if (window.RB21Games) window.RB21Games.onShow(v);
   window.scrollTo(0, 0);
 }
 document.addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (g && me) { e.preventDefault(); show(g.dataset.go); } });
@@ -46,7 +50,16 @@ $('#authForm').onsubmit = async (e) => {
   try { const r = await api('/api/auth/' + authMode, f); token = r.token; localStorage.setItem('rb21_token', token); start(r.user); }
   catch (err) { $('#authErr').textContent = err.message; }
 };
-function logout() { localStorage.removeItem('rb21_token'); token = null; me = null; if (socket) socket.disconnect(); $('#nav').hidden = true; show('auth'); }
+function logout() {
+  if (offline) { offline = false; localStorage.removeItem('rb21_mode'); if (socket) socket.disconnect(); socket = null; me = null; $('#nav').hidden = true; return boot(); }
+  localStorage.removeItem('rb21_token'); token = null; me = null; if (socket) socket.disconnect(); $('#nav').hidden = true; show('auth');
+}
+async function goOffline() {
+  offline = true; localStorage.setItem('rb21_mode', 'offline');
+  cfg = await local().api('/api/config');
+  start(await local().api('/api/me'));
+}
+$('#btnOffline').onclick = () => goOffline().catch((e) => toast(e.message));
 $('#btnLogout').onclick = logout;
 
 function setMe(u) {
@@ -63,8 +76,10 @@ function setMe(u) {
 async function start(user) {
   $('#nav').hidden = false; setMe(user);
   if (socket) socket.disconnect();
-  await loadSocketIO();
-  socket = io(API || undefined, { auth: { token } });
+  if (offline) socket = local().socket();
+  else { await loadSocketIO(); socket = io(API || undefined, { auth: { token } }); }
+  document.body.classList.toggle('is-offline', offline);
+  $('#btnLogout').textContent = offline ? 'Go online' : 'Sign out';
   socket.on('connect_error', (e) => { if (e.message === 'unauthorized') logout(); });
   socket.on('disconnect', (r) => { if (r === 'io server disconnect') logout(); });
   socket.on('wallet', (w) => setMe(w));
@@ -365,12 +380,30 @@ async function loadAdmin() {
 }
 $('#btnAdmin').onclick = () => show('admin');
 
+window.RB21 = { api, toast, fmt, esc, cardHTML, show, setMe: (u) => setMe(u), get me() { return me; } };
+
 // ---------- boot ----------
-(async () => {
-  try { cfg = await fetch(API + '/api/config').then((r) => r.json()); }
-  catch { document.querySelector('main').innerHTML = '<p class="lede">The game server is waking up or unreachable. Refresh in a minute.</p>'; return; }
+async function boot() {
+  document.body.classList.toggle('is-offline', offline);
+  if (offline) return goOffline();
+  $('#authNote').textContent = '';
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 75000);
+    $('#authNote').textContent = 'Connecting to the game server…';
+    cfg = await fetch(API + '/api/config', { signal: ctl.signal }).then((r) => { if (!r.ok) throw new Error(); return r.json(); });
+    clearTimeout(t);
+    if (offline) return; // player chose offline while we were connecting
+    $('#authNote').textContent = '';
+  } catch {
+    if (offline) return;
+    show('auth');
+    $('#authNote').textContent = 'Can’t reach the online server right now (no internet, or it’s waking up). You can play offline, or refresh in a minute.';
+    return;
+  }
   loadAdsense();
   if (token) { try { start(await api('/api/me')); return; } catch {} }
   show('auth');
-})();
+}
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+boot();
 })();
