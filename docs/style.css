@@ -297,3 +297,16 @@ dialog::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;color:#111;padding:.65em 1.2em;border-radius:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;box-shadow:var(--shadow);max-width:90vw;text-align:center}
 .toast.show{opacity:1}
 @media (max-width:560px){.games{grid-template-columns:1fr 1fr;gap:10px}.gtile{min-height:130px;padding:12px}.gtile strong{font-size:1rem}.gart{font-size:4.6rem}.gsub{font-size:.72rem}}
+
+/* ---------- admin settings ---------- */
+.settings{margin-bottom:14px}
+.set-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.set-head h2{margin:0}
+.set-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:10px 0 14px}
+@media (max-width:1100px){.set-grid{grid-template-columns:1fr}}
+.settings fieldset{border:1px solid var(--line);border-radius:14px;padding:6px 14px 12px;margin:0;min-width:0}
+.settings legend{font-weight:800;padding:0 6px}
+.settings .fine{margin:-.3em 0 .6em}
+.settings code{background:#0d1424;padding:1px 5px;border-radius:5px}
+.src{font-size:.68rem;font-weight:800;padding:.1em .5em;border-radius:999px;margin-left:4px;text-transform:uppercase;letter-spacing:.05em}
+.src.admin{background:#0f3d33;color:var(--win)}.src.render{background:#1f2b4d;color:var(--accent-2)}.src.unset{background:#3d1220;color:var(--lose)}
+.set-actions{display:flex;gap:8px;flex-wrap:wrap}

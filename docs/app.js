@@ -19,6 +19,9 @@ let offline = safeStorage.getItem('rb21_mode') === 'offline';
 const isApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 document.body.classList.toggle('is-app', isApp);
 const AdMob = isApp && window.Capacitor.Plugins ? window.Capacitor.Plugins.AdMob : null;
+const appPlatform = isApp && window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : 'web';
+// AdMob gives Android and iPhone different ad unit IDs.
+const rewardedUnit = () => (appPlatform === 'ios' ? cfg.admobRewardedIdIos || '' : cfg.admobRewardedId || '');
 const local = () => window.RB21Offline.init();
 let me = null, cfg = null, socket = null, table = null, tour = null, tourBet = 0;
 let authMode = 'login';
@@ -95,7 +98,7 @@ function setMe(u) {
   $('#adCard').hidden = !adsAvailable();
   if (!$('#v-earn').hidden) renderEarn();
 }
-const adsAvailable = () => !offline && !!((isApp && AdMob && cfg.admobRewardedId) || (!isApp && cfg.adsenseClient) || cfg.simulateAds);
+const adsAvailable = () => !offline && !!((isApp && AdMob && rewardedUnit()) || (!isApp && cfg.adsenseClient) || cfg.simulateAds);
 const clock = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? `${h}h ${m}m` : `${m}:${String(x).padStart(2, '0')}`; };
 let earnTick = null;
 function renderEarn() {
@@ -129,7 +132,7 @@ async function start(user) {
   socket.on('table', (t) => { if (table && t.id === table.id) { table = t; renderTable(); } });
   socket.on('tournaments:changed', () => { if (!$('#v-tournaments').hidden) loadTours(); });
   if (user.inbox && user.inbox.length) showGifts(user.inbox, true);
-  if (AdMob && cfg.admobRewardedId) AdMob.initialize({}).catch(() => {});
+  if (AdMob && rewardedUnit()) AdMob.initialize({}).catch(() => {});
   socket.on('connect', () => { if (table) tryEmit('table:watch', { tableId: table.id }); });
   show('lobby');
 }
@@ -325,10 +328,10 @@ $('#btnRefill').onclick = () => api('/api/bonus/refill', {}).then((u) => { setMe
 const claimAd = () => api('/api/ads/reward', {}).then((u) => { setMe(u); toast(`+${cfg.economy.adReward} credits`); }).catch((e) => toast(e.message));
 $('#btnAd').onclick = async () => {
   if (Date.now() < me.nextAd) return toast('Next video ready in ' + clock(me.nextAd - Date.now()));
-  if (isApp && AdMob && cfg.admobRewardedId) {
+  if (isApp && AdMob && rewardedUnit()) {
     try {
       $('#btnAd').disabled = true;
-      await AdMob.prepareRewardVideoAd({ adId: cfg.admobRewardedId });
+      await AdMob.prepareRewardVideoAd({ adId: rewardedUnit() });
       const reward = await AdMob.showRewardVideoAd();
       if (reward) claimAd(); else toast('Watch to the end to earn credits');
     } catch (e) { toast('No video available right now. Try again soon.'); }
@@ -438,10 +441,11 @@ async function loadUsers() {
 }
 async function loadAdmin() {
   if (!me?.admin) return show('lobby');
+  loadSettings();
   api('/api/admin/grants').then((gs) => {
     $('#grantList').innerHTML = gs.map((g) => `<div class="li"><span>${esc(g.email)}</span><small>${g.amount > 0 ? '+' : ''}${fmt(g.amount)}${g.message ? ' · “' + esc(g.message) + '”' : ''} · ${new Date(g.at).toLocaleDateString()}</small></div>`).join('') || '<p class="empty">No gifts yet</p>';
   }).catch(() => {});
-  $('#adsHint').hidden = !!(cfg.adsenseClient || cfg.admobRewardedId || cfg.simulateAds);
+  $('#adsHint').hidden = !!(cfg.adsenseClient || cfg.admobRewardedId || cfg.admobRewardedIdIos || cfg.simulateAds);
   const d = new Date(Date.now() + 24 * 3600e3); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   if (!tf.endsAt.value) tf.endsAt.value = d.toISOString().slice(0, 16);
   try {
@@ -460,6 +464,41 @@ async function loadAdmin() {
 }
 $('#btnAdmin').onclick = () => show('admin');
 $('#btnGiftAll').onclick = () => giftDialog(null);
+
+// ---------- admin: settings & IDs ----------
+const SRC_LABEL = { admin: 'saved here', render: 'from Render', unset: 'not set' };
+function fillSettings(v) {
+  const f = $('#setForm');
+  for (const k of ['adsenseClient', 'adsenseBannerSlot', 'admobRewardedId', 'admobRewardedIdIos', 'paypalClientId']) f[k].value = v.source[k] === 'admin' ? v.values[k] : '';
+  for (const k of ['adsenseClient', 'adsenseBannerSlot', 'admobRewardedId', 'admobRewardedIdIos', 'paypalClientId']) f[k].placeholder = v.source[k] === 'render' ? v.values[k] + '  (from Render)' : f[k].dataset.ph || (f[k].dataset.ph = f[k].placeholder);
+  f.adsTestMode.checked = !!v.values.adsTestMode; f.simulateAds.checked = !!v.values.simulateAds;
+  f.paypalEnv.value = v.values.paypalEnv || 'sandbox';
+  f.paypalSecret.value = '';
+  document.querySelectorAll('#setForm [data-src]').forEach((el) => { const s = v.source[el.dataset.src]; el.className = 'src ' + s; el.textContent = SRC_LABEL[s]; });
+  const ss = $('#srcSecret'); ss.className = 'src ' + v.paypalSecretSource; ss.textContent = SRC_LABEL[v.paypalSecretSource];
+  $('#secretNote').textContent = v.secretUnreadable ? 'The saved secret can’t be read anymore (JWT_SECRET changed). Paste it again.'
+    : v.paypalSecretSet ? 'A secret is set. It’s never shown again; paste a new one only to replace it.' : 'Paste your PayPal Secret to turn on credit packs and paid entries.';
+  $('#btnClearSecret').hidden = v.paypalSecretSource !== 'admin';
+  $('#setUpdated').textContent = v.updatedAt ? 'Last saved ' + new Date(v.updatedAt).toLocaleString() : '';
+}
+async function loadSettings() { try { fillSettings(await api('/api/admin/settings')); } catch (e) { $('#setErr').textContent = e.message; } }
+async function saveSettings(extra = {}) {
+  const f = $('#setForm'); $('#setErr').textContent = '';
+  const body = { adsenseClient: f.adsenseClient.value, adsenseBannerSlot: f.adsenseBannerSlot.value, admobRewardedId: f.admobRewardedId.value, admobRewardedIdIos: f.admobRewardedIdIos.value,
+    paypalClientId: f.paypalClientId.value, paypalEnv: f.paypalEnv.value, adsTestMode: f.adsTestMode.checked, simulateAds: f.simulateAds.checked, ...extra };
+  if (f.paypalSecret.value.trim()) body.paypalSecret = f.paypalSecret.value.trim();
+  try {
+    fillSettings(await api('/api/admin/settings', body));
+    cfg = await api('/api/config'); setMe({});
+    $('#adsHint').hidden = !!(cfg.adsenseClient || cfg.admobRewardedId || cfg.admobRewardedIdIos || cfg.simulateAds);
+    toast('Settings saved');
+  } catch (e) { $('#setErr').textContent = e.message; }
+}
+$('#setForm').onsubmit = (e) => { e.preventDefault(); saveSettings(); };
+$('#btnClearSecret').onclick = () => { if (confirm('Remove the PayPal secret saved here? (A Render value, if any, will be used.)')) saveSettings({ clearPaypalSecret: true }); };
+$('#btnTestPaypal').onclick = async () => {
+  try { const r = await api('/api/admin/settings/test-paypal', {}); toast(`PayPal keys work (${r.env})`); } catch (e) { toast(e.message); }
+};
 
 window.RB21 = { api, toast, fmt, esc, cardHTML, show, setMe: (u) => setMe(u), get me() { return me; } };
 

@@ -258,6 +258,26 @@ let server, store;
   cr = await fetch(base + '/api/config', { headers: { Origin: 'capacitor://localhost' } });
   assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*', 'mobile app origin');
 
+  // Admin settings: IDs and keys editable in the admin panel
+  assert.strictEqual((await api('/api/admin/settings', null, A.token)).status, 403);
+  let st = (await api('/api/admin/settings', null, admin.token)).body;
+  assert.strictEqual(st.source.paypalClientId, 'render'); assert.strictEqual(st.paypalSecretSet, true);
+  assert.strictEqual(JSON.stringify(st).includes('test-secret'), false, 'secret never sent to the browser');
+  r = await api('/api/admin/settings', { adsenseClient: 'ca-pub-123' }, admin.token);
+  assert.strictEqual(r.status, 400); assert.match(r.body.error, /adsenseClient/);
+  r = await api('/api/admin/settings', { adsenseClient: 'ca-pub-1234567890123456', adsenseBannerSlot: '9876543210', admobRewardedId: 'ca-app-pub-1234567890123456/1234567890', admobRewardedIdIos: 'ca-app-pub-1234567890123456/9999999999',
+    paypalClientId: 'AdminClientId_abcdefghijklmnop', paypalSecret: 'AdminSecret_abcdefghijklmnopqrst', paypalEnv: 'sandbox' }, admin.token);
+  assert.strictEqual(r.status, 200, JSON.stringify(r.body)); assert.strictEqual(r.body.source.adsenseClient, 'admin'); assert.strictEqual(r.body.paypalSecretSource, 'admin');
+  let cfgPub = (await api("/api/config")).body;
+  assert.strictEqual(cfgPub.adsenseClient, "ca-pub-1234567890123456"); assert.strictEqual(cfgPub.admobRewardedId, 'ca-app-pub-1234567890123456/1234567890');
+  assert.strictEqual(cfgPub.admobRewardedIdIos, "ca-app-pub-1234567890123456/9999999999"); assert.strictEqual(cfgPub.paypalClientId, "AdminClientId_abcdefghijklmnop", 'PayPal rebuilt with admin keys');
+  assert.ok(!JSON.stringify(store.data.settings).includes('AdminSecret_'), 'secret stored encrypted');
+  r = await api('/api/admin/settings/test-paypal', {}, admin.token); assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+  // clearing falls back to the Render values
+  r = await api('/api/admin/settings', { adsenseClient: '', adsenseBannerSlot: '', admobRewardedId: '', admobRewardedIdIos: '', paypalClientId: '', clearPaypalSecret: true }, admin.token);
+  assert.strictEqual(r.body.source.paypalClientId, 'render'); assert.strictEqual(r.body.paypalSecretSource, 'render');
+  cfgPub = (await api("/api/config")).body; assert.strictEqual(cfgPub.paypalClientId, "test-client"); assert.strictEqual(cfgPub.adsenseClient, "");
+
   // Admin credit adjust and suspend
   r = await api(`/api/admin/users/${B.user.id}/credits`, { amount: 5000 }, admin.token); assert.strictEqual(r.status, 200);
   r = await api(`/api/admin/users/${B.user.id}/ban`, { banned: true }, admin.token); assert.strictEqual(r.body.banned, true);

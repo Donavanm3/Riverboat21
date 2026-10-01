@@ -239,7 +239,40 @@
 
   <section id="v-admin" class="view" hidden>
     <div class="ghead"><h1>Admin</h1><button class="cta" id="btnGiftAll">Gift every player</button></div>
-    <p class="panel note" id="adsHint" hidden>Video ads are off. Set <b>ADSENSE_CLIENT</b> (website) or <b>ADMOB_REWARDED_ID</b> (mobile app) on Render to turn on “Watch a video” for players.</p>
+    <p class="panel note" id="adsHint" hidden>Video ads are off. Add your AdSense or AdMob IDs in <b>Settings &amp; IDs</b> below to turn on “Watch a video” for players.</p>
+    <form id="setForm" class="panel settings">
+      <div class="set-head"><h2>Settings &amp; IDs</h2><span class="sub" id="setUpdated"></span></div>
+      <p class="fine">Saved values work right away (players see ad changes next time they open the game) and override the ones in Render. Leave a box empty to use Render’s value.</p>
+      <div class="set-grid">
+        <fieldset>
+          <legend>Website ads (Google AdSense)</legend>
+          <label>Publisher ID <span class="src" data-src="adsenseClient"></span><input name="adsenseClient" placeholder="ca-pub-1234567890123456" autocomplete="off"></label>
+          <p class="fine">AdSense → Account → Account information → Publisher ID.</p>
+          <label>Banner ad slot ID <span class="src" data-src="adsenseBannerSlot"></span><input name="adsenseBannerSlot" placeholder="1234567890" inputmode="numeric" autocomplete="off"></label>
+          <p class="fine">AdSense → Ads → By ad unit → create a Display ad → copy the data-ad-slot number.</p>
+          <label class="check"><input type="checkbox" name="adsTestMode"> Test mode (show Google test ads while you set things up)</label>
+        </fieldset>
+        <fieldset>
+          <legend>Mobile app ads (Google AdMob)</legend>
+          <label>Android rewarded ad unit ID <span class="src" data-src="admobRewardedId"></span><input name="admobRewardedId" placeholder="ca-app-pub-1234567890123456/1234567890" autocomplete="off"></label>
+          <p class="fine">AdMob → Apps → your Android app → Ad units → Rewarded. Google’s test unit: ca-app-pub-3940256099942544/5224354917</p>
+          <label>iPhone rewarded ad unit ID <span class="src" data-src="admobRewardedIdIos"></span><input name="admobRewardedIdIos" placeholder="ca-app-pub-1234567890123456/1234567890" autocomplete="off"></label>
+          <p class="fine">Same, for your iOS app in AdMob. Google’s test unit: ca-app-pub-3940256099942544/1712485313</p>
+          <p class="fine">The AdMob <b>App ID</b> (with a ~) is built into the app, so it goes in GitHub instead: Settings → Secrets and variables → Actions → Variables → <code>ADMOB_APP_ID</code> (Android) and <code>ADMOB_APP_ID_IOS</code> (iPhone), then rebuild the apps.</p>
+          <label class="check"><input type="checkbox" name="simulateAds"> Simulate ads (testing only: fake 10-second ad that still pays)</label>
+        </fieldset>
+        <fieldset>
+          <legend>Payments (PayPal)</legend>
+          <label>Client ID <span class="src" data-src="paypalClientId"></span><input name="paypalClientId" placeholder="From developer.paypal.com → Apps &amp; Credentials" autocomplete="off"></label>
+          <label>Secret <span class="src" id="srcSecret"></span><input name="paypalSecret" type="password" autocomplete="new-password" placeholder="Paste to set or replace"></label>
+          <p class="fine" id="secretNote"></p>
+          <label>Mode<select name="paypalEnv"><option value="sandbox">Sandbox (testing, fake money)</option><option value="live">Live (real payments)</option></select></label>
+          <div class="set-actions"><button type="button" class="ghost sm" id="btnTestPaypal">Test PayPal keys</button><button type="button" class="ghost sm" id="btnClearSecret">Remove saved secret</button></div>
+        </fieldset>
+      </div>
+      <button class="cta wide" id="btnSaveSettings">Save settings</button>
+      <p class="err" id="setErr"></p>
+    </form>
     <div class="grid2">
       <form id="tourForm" class="panel">
         <h3>Host a tournament</h3>

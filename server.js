@@ -25,18 +25,23 @@ const JWT_SECRET = process.env.JWT_SECRET || (() => {
   return crypto.randomBytes(32).toString('hex');
 })();
 const { PayPal } = require('./lib/paypal');
-const PAYPAL_ENV = process.env.PAYPAL_ENV === 'live' ? 'live' : 'sandbox';
-const paypal = process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET
-  ? new PayPal({ clientId: process.env.PAYPAL_CLIENT_ID, secret: process.env.PAYPAL_CLIENT_SECRET, env: PAYPAL_ENV, base: process.env.PAYPAL_API_BASE })
-  : null;
+// PayPal client is rebuilt whenever the admin changes the keys (see lib/settings.js).
+let paypal = null;
+function rebuildPayPal() {
+  const v = settings.all(), secret = settings.paypalSecret();
+  paypal = v.paypalClientId && secret ? new PayPal({ clientId: v.paypalClientId, secret, env: v.paypalEnv, base: process.env.PAYPAL_API_BASE }) : null;
+}
 
 const store = new Store(process.env.DATA_FILE || path.join(__dirname, 'data', 'db.json'));
 store.remote = global.__RB21_REMOTE || null; // set by start.js when DATABASE_URL is used
 const D = store.data;
+const { Settings } = require('./lib/settings');
+const settings = new Settings(store, JWT_SECRET, () => rebuildPayPal());
+rebuildPayPal();
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 const isAdmin = (u) => !!u && u.email === ADMIN_EMAIL;
 // Rewarded ads: AdSense (website) and/or AdMob (mobile app). SIMULATE_ADS is for testing only.
-const ADS_ENABLED = !!(process.env.ADSENSE_CLIENT || process.env.ADMOB_REWARDED_ID || process.env.SIMULATE_ADS === 'true');
+const adsEnabled = () => { const v = settings.all(); return !!(v.adsenseClient || v.admobRewardedId || v.admobRewardedIdIos || v.simulateAds); };
 
 // ---- admin account: created from env, the admin email can never be claimed through sign-up ----
 if (!D.emailIndex[ADMIN_EMAIL] && process.env.ADMIN_PASSWORD) {
@@ -120,12 +125,10 @@ function throttle(key, max = 10, windowMs = 15 * 60000) {
 
 // ---- public config ----
 app.get('/api/config', (req, res) => res.json({
-  adsenseClient: process.env.ADSENSE_CLIENT || '',
-  adsenseBannerSlot: process.env.ADSENSE_BANNER_SLOT || '',
-  adsTestMode: process.env.ADS_TEST_MODE === 'true',
-  simulateAds: process.env.SIMULATE_ADS === 'true',
-  admobRewardedId: process.env.ADMOB_REWARDED_ID || '',
-  storeEnabled: !!paypal, paypalClientId: paypal ? process.env.PAYPAL_CLIENT_ID : '', paypalEnv: PAYPAL_ENV, packs: CREDIT_PACKS, economy: ECONOMY,
+  ...(() => { const v = settings.all(); return {
+    adsenseClient: v.adsenseClient, adsenseBannerSlot: v.adsenseBannerSlot, adsTestMode: v.adsTestMode, simulateAds: v.simulateAds,
+    admobRewardedId: v.admobRewardedId, admobRewardedIdIos: v.admobRewardedIdIos, paypalClientId: paypal ? v.paypalClientId : '', paypalEnv: v.paypalEnv }; })(),
+  storeEnabled: !!paypal, packs: CREDIT_PACKS, economy: ECONOMY,
 }));
 
 // ---- auth ----
@@ -170,7 +173,7 @@ app.post('/api/bonus/refill', auth, wrap((req) => {
 }));
 app.post('/api/ads/reward', auth, wrap((req) => {
   const u = req.user, now = Date.now(), day = new Date().toISOString().slice(0, 10);
-  if (!ADS_ENABLED) throw new Error('Ads are not set up');
+  if (!adsEnabled()) throw new Error('Ads are not set up');
   if (u.adDay !== day) { u.adDay = day; u.adsToday = 0; }
   if (u.adsToday >= ECONOMY.adDailyCap) throw new Error('Daily ad limit reached');
   if (now < (u.lastAd || 0) + ECONOMY.adCooldownMs) throw new Error('Next ad reward is not ready yet');
@@ -303,6 +306,13 @@ app.post('/api/admin/credits/everyone', auth, admin, wrap((req) => {
   for (const u of Object.values(D.users)) if (!u.banned && grant(u, amt, req.body.message, req.user.email)) n++;
   return { players: n };
 }));
+app.get('/api/admin/settings', auth, admin, wrap(() => settings.adminView()));
+app.post('/api/admin/settings', auth, admin, wrap((req) => settings.update(req.body || {})));
+app.post('/api/admin/settings/test-paypal', auth, admin, async (req, res) => {
+  if (!paypal) return res.status(400).json({ error: 'Add the PayPal Client ID and Secret first' });
+  try { paypal.cached = null; await paypal.token(); res.json({ ok: true, env: settings.all().paypalEnv }); }
+  catch (e) { res.status(400).json({ error: `PayPal rejected these keys (${settings.all().paypalEnv}). Check the Client ID, Secret, and sandbox/live setting.` }); }
+});
 app.get('/api/admin/grants', auth, admin, wrap(() => D.grants.slice(0, 100)));
 app.post('/api/admin/users/:id/ban', auth, admin, wrap((req) => {
   const u = D.users[req.params.id];

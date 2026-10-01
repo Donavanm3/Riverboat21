@@ -154,32 +154,57 @@ The video card only appears where ads are set up. For testing the app before AdM
 test IDs: app `ca-app-pub-3940256099942544~3347511713`, rewarded unit `ca-app-pub-3940256099942544/5224354917`.
 `SIMULATE_ADS=true` shows a fake 10-second ad for trying the flow; never leave it on in production.
 
+## Settings & IDs (admin panel)
+
+Admin → **Settings & IDs** lets you paste the IDs and keys without touching Render: AdSense publisher ID and banner
+slot, ads test mode, AdMob rewarded ad unit ID, PayPal Client ID / Secret / sandbox-or-live, and simulate ads.
+Saved values take effect immediately and override the Render environment variables; leave a box empty to fall back
+to Render. Each field shows whether its value is *saved here*, *from Render*, or *not set*. The PayPal secret is stored
+encrypted with a key derived from `JWT_SECRET` and is never sent back to the browser (if `JWT_SECRET` ever changes,
+paste the secret again). **Test PayPal keys** checks the keys with PayPal. The AdMob *App ID* is compiled into the
+app, so it stays a GitHub variable (`ADMOB_APP_ID`).
+
 ## Giving players credits (admin)
 
 Admin → Players → **Give credits** (quick amounts, optional message; negative numbers take credits away), or
 **Gift every player** at the top. Players see a "You got a gift" popup instantly, or the next time they sign in.
 Every gift is logged under **Credit gifts**.
 
-## Mobile app (Android, iOS)
+## Mobile apps: Android APK and iPhone
 
-`mobile/` is a Capacitor 8 project that packages the same game (`docs/`) as a native app pointed at your server.
-In the app, the PayPal store and paid tournament entries are hidden (app stores require their own billing for
-digital goods); rewarded videos use AdMob.
+`mobile/` is a Capacitor 8 project that packages the same game (`docs/`) as native apps pointed at your server.
+In the apps, the PayPal store and paid tournament entries are hidden (app stores require their own billing for
+digital goods); rewarded videos use AdMob. Both apps are built in the cloud by GitHub Actions, so a phone is enough.
 
-**Build Android from your phone (GitHub Actions):**
-1. Copy `mobile/android-build.yml` into `.github/workflows/android-build.yml` (Add file → Create new file, paste).
-2. Actions → **Build Android app** → Run workflow. When it finishes, download **riverboat21-android** from the run's
-   Artifacts and install the `.apk` on your phone to test (allow "install unknown apps").
-3. For Google Play: run the workflow once with **make_keystore** ticked, download **signing-key-SAVE-THIS**
-   (kept for 1 day; store it somewhere safe forever), and add its three values as repository secrets
-   `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`. Later runs then produce a signed
-   `.aab` to upload in the Play Console ($25 one-time developer account).
-Optional repository variables: `API_URL` (server address) and `ADMOB_APP_ID`.
+**One-time setup:** copy `mobile/build-apps.yml` to `.github/workflows/build-apps.yml` (Add file → Create new file → paste).
+Then Actions → **Build apps** → Run workflow → choose `both`, `android` or `ios`. Results are under the run's **Artifacts**.
 
-**iOS** needs a Mac with Xcode (or a cloud Mac service such as Codemagic) and an Apple Developer account ($99/year):
-`cd mobile && npm install && npm run ios:prepare && npx cap open ios`.
+### Android
+- With no extra setup you get **Riverboat21.apk** (test build): download, open it on your phone, allow "install unknown apps".
+- For Google Play: run once with **make_keystore** ticked, download `android-signing-key-SAVE-THIS` (kept 1 day; store it
+  safely forever) and add its three values as repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+  `ANDROID_KEY_ALIAS`. Later runs give a signed `Riverboat21.apk` plus `Riverboat21-google-play.aab` for the Play Console
+  ($25 one-time developer account).
+- Optional variable `ADMOB_APP_ID` (your AdMob Android app ID; Google's test ID is used until set).
 
-Store policies: list the app as a social/simulated casino (no real-money gambling), rate it 17+/Mature, and keep
+### iPhone
+Builds run on GitHub's macOS machines (free for public repos; private repos use paid minutes at a higher rate).
+- **Without Apple keys:** you get **Riverboat21-unsigned.ipa**. iPhones only install signed apps, so this must be signed
+  on install with a tool like Sideloadly or AltStore (needs a computer; with a free Apple ID the app expires after 7 days).
+- **With an Apple Developer account ($99/year)**: builds are signed in the cloud and uploaded to **TestFlight**, then you
+  install them with the TestFlight app (and can later submit to the App Store). Set up once, all in a browser:
+  1. developer.apple.com → Certificates, IDs & Profiles → Identifiers → **+** → App IDs → App → bundle ID
+     `com.dashlith.riverboat21`.
+  2. appstoreconnect.apple.com → Apps → **+ New App** → iOS, name "Riverboat 21", that bundle ID.
+  3. App Store Connect → Users and Access → Integrations → App Store Connect API → **+** key with **Admin** access.
+     Download the `.p8` file (only possible once).
+  4. GitHub → Settings → Secrets and variables → Actions: secrets `ASC_KEY_ID` (Key ID), `ASC_ISSUER_ID` (Issuer ID),
+     `ASC_KEY_P8` (the whole text of the .p8 file); variable `IOS_TEAM_ID` (developer.apple.com → Membership → Team ID).
+  5. Run the workflow with `ios`. The build appears in TestFlight after Apple processes it (10–30 minutes).
+- Optional variable `ADMOB_APP_ID_IOS` (your AdMob iOS app ID; Google's test ID is used until set). Set the iPhone
+  rewarded ad unit in Admin → Settings & IDs.
+
+Store policies: list the apps as a social/simulated casino (no real-money gambling), rate them 17+/Mature, and keep
 real-prize tournaments' official rules in the app. Paid entry stays website-only.
 
 ## Rules
