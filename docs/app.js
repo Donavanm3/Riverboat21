@@ -26,7 +26,9 @@ let authMode = 'login';
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
 async function api(path, body, method) {
   if (offline) return local().api(path, body, method);
-  const res = await fetch(API + path, { method: method || (body ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  let res;
+  try { res = await fetch(API + path, { method: method || (body ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
+  catch { throw new Error(navigator.onLine === false ? 'You’re offline. Use “Play offline” or reconnect.' : 'Can’t reach the game server. It may be waking up (about a minute on the free plan). Try again shortly.'); }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && token) { logout(); throw new Error('Signed out'); }
   if (!res.ok) throw new Error(data.error || 'Something went wrong');

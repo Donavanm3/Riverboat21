@@ -62,21 +62,25 @@ let server, store;
   r = await api('/api/ads/reward', {}, A.token); assert.strictEqual(r.body.credits, 1650);
   r = await api('/api/ads/reward', {}, A.token); assert.strictEqual(r.status, 400, 'ad cooldown');
   assert.strictEqual((await api('/api/config')).body.paypalClientId, 'test-client');
+  // Any site may load the game page (token auth, no cookies); preflight works too
+  let pre = await fetch(base + '/api/me', { method: 'OPTIONS', headers: { Origin: 'null', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' } });
+  assert.strictEqual(pre.status, 204); assert.strictEqual(pre.headers.get('access-control-allow-origin'), '*');
+  assert.match(pre.headers.get('access-control-allow-headers'), /Authorization/);
   // CORS for the GitHub Pages front end
   let cr = await fetch(base + '/api/config', { headers: { Origin: 'https://deer.github.io' } });
-  assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'https://deer.github.io');
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*');
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://anyone.github.io' } });
-  assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'https://anyone.github.io', 'GitHub Pages allowed');
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*', 'GitHub Pages allowed');
   for (const o of ['https://tinidrop.com', 'https://riverboat21.tinidrop.app']) {
     cr = await fetch(base + '/api/config', { headers: { Origin: o } });
-    assert.strictEqual(cr.headers.get('access-control-allow-origin'), o, 'TiniDrop allowed: ' + o);
+    assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*', 'TiniDrop allowed: ' + o);
   }
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://tinidrop.com.evil.example' } });
-  assert.strictEqual(cr.headers.get('access-control-allow-origin'), null);
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*');
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://x.github.io.evil.example' } });
-  assert.strictEqual(cr.headers.get('access-control-allow-origin'), null);
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*');
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://evil.example' } });
-  assert.strictEqual(cr.headers.get('access-control-allow-origin'), null);
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*');
 
   // Multiplayer hand
   const connect = (tok) => new Promise((res, rej) => { const s = io(base, { auth: { token: tok }, transports: ['websocket'] }); s.on('connect', () => res(s)); s.on('connect_error', rej); });
@@ -252,7 +256,7 @@ let server, store;
   assert.strictEqual((await api('/api/admin/credits/everyone', { amount: 100 }, A.token)).status, 403);
   assert.ok((await api('/api/admin/grants', null, admin.token)).body.length >= 4);
   cr = await fetch(base + '/api/config', { headers: { Origin: 'capacitor://localhost' } });
-  assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'capacitor://localhost', 'mobile app origin');
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), '*', 'mobile app origin');
 
   // Admin credit adjust and suspend
   r = await api(`/api/admin/users/${B.user.id}/credits`, { amount: 5000 }, admin.token); assert.strictEqual(r.status, 200);

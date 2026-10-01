@@ -47,7 +47,8 @@ tournaments or multiplayer, since those need the online engine.
 ### Hosting the website on TiniDrop
 
 TiniDrop (tinidrop.com) hosts the game page like GitHub Pages does; the Render server keeps running the engine,
-and it already accepts requests from `tinidrop.com` and `*.tinidrop.app`.
+and it accepts the game page from any website by default (sign-in uses a token, not cookies, so this is safe).
+Set `CORS_STRICT=true` on Render to only allow GitHub Pages, TiniDrop, the app, and `CLIENT_URL`/`ALLOWED_ORIGINS`.
 
 - **By hand (works from a phone):** run `npm run pack:site` (or use the ready-made `riverboat21-tinidrop-site.zip`)
   and drag the ZIP onto tinidrop.com. Then open **Live Site**. ZIP sites need TiniDrop's Solo plan or above;

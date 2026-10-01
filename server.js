@@ -57,8 +57,12 @@ const server = http.createServer(app);
 const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost', 'http://localhost']);
 // Static hosts that serve the game page: GitHub Pages and TiniDrop (tinidrop.com/api/site/<slug>/ or <name>.tinidrop.app).
 const STATIC_HOSTS = [/^https:\/\/[a-z0-9-]+\.github\.io$/i, /^https:\/\/(www\.)?tinidrop\.com$/i, /^https:\/\/[a-z0-9-]+\.tinidrop\.app$/i];
-const originAllowed = (origin) => ALLOWED_ORIGINS.has(origin) || APP_ORIGINS.has(origin) || STATIC_HOSTS.some((re) => re.test(origin));
-const io = new Server(server, { cors: { origin: (origin, cb) => cb(null, !origin || originAllowed(origin)), methods: ['GET', 'POST'] } });
+// By default the API accepts the game page from ANY website (GitHub Pages, TiniDrop, Google Sites embeds, the app...).
+// This is safe because sign-in uses a bearer token the page keeps itself, never cookies, so other sites can't act as a player.
+// Set CORS_STRICT=true to allow only the hosts above plus CLIENT_URL / ALLOWED_ORIGINS.
+const CORS_STRICT = process.env.CORS_STRICT === 'true';
+const originAllowed = (origin) => !CORS_STRICT || ALLOWED_ORIGINS.has(origin) || APP_ORIGINS.has(origin) || STATIC_HOSTS.some((re) => re.test(origin));
+const io = new Server(server, { cors: { origin: (origin, cb) => cb(null, !origin || origin === 'null' || originAllowed(origin)), methods: ['GET', 'POST'] } });
 
 const wallet = new Wallet(store, (uid) => {
   const u = D.users[uid];
@@ -73,7 +77,7 @@ app.set('trust proxy', 1);
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (origin && originAllowed(origin)) {
-    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Origin', CORS_STRICT ? origin : '*');
     res.set('Vary', 'Origin');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
