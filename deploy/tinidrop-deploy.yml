@@ -1,0 +1,22 @@
+# Copy to .github/workflows/tinidrop-deploy.yml (Add file → Create new file, paste).
+# Needs: secret TINIDROP_API_KEY (TiniDrop Solo plan or above). After the first run, add the printed slug
+# as repository variable TINIDROP_SLUG so later runs update the same link instead of making a new one.
+name: Deploy site to TiniDrop
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/deploy-tinidrop.js
+        env:
+          TINIDROP_API_KEY: ${{ secrets.TINIDROP_API_KEY }}
+          TINIDROP_SLUG: ${{ vars.TINIDROP_SLUG }}
+          RB21_API: ${{ vars.API_URL || 'https://riverboat21.onrender.com' }}

@@ -1,5 +1,10 @@
 'use strict';
 (() => {
+// Some embeds (Google Sites, sandboxed iframes) block storage. Fall back to memory instead of crashing.
+const safeStorage = (() => {
+  try { const k = '__rb21'; window.localStorage.setItem(k, '1'); window.localStorage.removeItem(k); return window.localStorage; }
+  catch { const m = {}; return { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: (k) => { delete m[k]; }, memoryOnly: true }; }
+})();
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -8,8 +13,12 @@ const RESULT = { win: 'Win', blackjack: 'Blackjack!', push: 'Push', lose: 'Lose'
 
 const API = String(window.RB21_API || '').replace(/\/$/, '');
 const money = (c) => '$' + (c / 100).toFixed(2);
-let token = localStorage.getItem('rb21_token');
-let offline = localStorage.getItem('rb21_mode') === 'offline';
+let token = safeStorage.getItem('rb21_token');
+let offline = safeStorage.getItem('rb21_mode') === 'offline';
+// Running inside the Android/iOS app (Capacitor)?
+const isApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+document.body.classList.toggle('is-app', isApp);
+const AdMob = isApp && window.Capacitor.Plugins ? window.Capacitor.Plugins.AdMob : null;
 const local = () => window.RB21Offline.init();
 let me = null, cfg = null, socket = null, table = null, tour = null, tourBet = 0;
 let authMode = 'login';
@@ -26,11 +35,23 @@ async function api(path, body, method) {
 const emit = (ev, data) => new Promise((resolve, reject) => socket.emit(ev, data, (r) => (r && r.error ? reject(new Error(r.error)) : resolve(r && r.data))));
 const tryEmit = (ev, data) => emit(ev, data).catch((e) => toast(e.message));
 
-function show(v) {
+// Back button (browser and Android) moves between screens instead of leaving the game.
+let curView = null;
+window.addEventListener('popstate', (e) => { if (me) show((e.state && e.state.v) || 'lobby', true); });
+function show(v, fromHistory) {
+  if (!fromHistory && v !== curView && me && v !== 'auth') {
+    try { (curView && curView !== 'auth' ? history.pushState : history.replaceState).call(history, { v }, ''); } catch { /* sandboxed embed */ }
+  }
+  curView = v;
   document.querySelectorAll('.view').forEach((el) => (el.hidden = el.id !== 'v-' + v));
+  document.querySelectorAll('.side [data-go], .tabbar [data-go]').forEach((a) => a.classList.toggle('active', a.dataset.go === v));
+  const signedIn = v !== 'auth' && !!me;
+  $('#side').hidden = !signedIn; $('#tabbar').hidden = !signedIn;
   if (v !== 'table' && table) { tryEmit('table:leave', { tableId: table.id }); table = null; }
   if (v !== 'tour') tour = null;
-  if (v === 'lobby') loadTours();
+  if (v === 'tournaments') loadTours();
+  if (v === 'earn') renderEarn();
+  if (v === 'lobby' && me) $('#hello').textContent = `Welcome back, ${me.name}`;
   if (v === 'admin') loadAdmin();
   if (window.RB21Games) window.RB21Games.onShow(v);
   window.scrollTo(0, 0);
@@ -47,15 +68,15 @@ document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
 $('#authForm').onsubmit = async (e) => {
   e.preventDefault(); $('#authErr').textContent = '';
   const f = Object.fromEntries(new FormData(e.target));
-  try { const r = await api('/api/auth/' + authMode, f); token = r.token; localStorage.setItem('rb21_token', token); start(r.user); }
+  try { const r = await api('/api/auth/' + authMode, f); token = r.token; safeStorage.setItem('rb21_token', token); start(r.user); }
   catch (err) { $('#authErr').textContent = err.message; }
 };
 function logout() {
-  if (offline) { offline = false; localStorage.removeItem('rb21_mode'); if (socket) socket.disconnect(); socket = null; me = null; $('#nav').hidden = true; return boot(); }
-  localStorage.removeItem('rb21_token'); token = null; me = null; if (socket) socket.disconnect(); $('#nav').hidden = true; show('auth');
+  if (offline) { offline = false; safeStorage.removeItem('rb21_mode'); if (socket) socket.disconnect(); socket = null; me = null; $('#nav').hidden = true; return boot(); }
+  safeStorage.removeItem('rb21_token'); token = null; me = null; if (socket) socket.disconnect(); $('#nav').hidden = true; show('auth');
 }
 async function goOffline() {
-  offline = true; localStorage.setItem('rb21_mode', 'offline');
+  offline = true; safeStorage.setItem('rb21_mode', 'offline');
   cfg = await local().api('/api/config');
   start(await local().api('/api/me'));
 }
@@ -68,10 +89,28 @@ function setMe(u) {
   $('#btnAdmin').hidden = !me.admin;
   const now = Date.now();
   $('#btnDaily').disabled = now < me.nextDaily;
-  $('#btnDaily').title = now < me.nextDaily ? 'Ready ' + new Date(me.nextDaily).toLocaleString() : '';
-  $('#btnRefill').hidden = (me.credits + (me.escrow || 0)) >= cfg.economy.refillThreshold;
-  $('#btnAd').hidden = !(cfg.adsenseClient || cfg.simulateAds);
-  $('#btnAd').textContent = `Watch ad +${cfg.economy.adReward}`;
+  $('#refillCard').hidden = (me.credits + (me.escrow || 0)) >= cfg.economy.refillThreshold;
+  $('#adCard').hidden = !adsAvailable();
+  if (!$('#v-earn').hidden) renderEarn();
+}
+const adsAvailable = () => !offline && !!((isApp && AdMob && cfg.admobRewardedId) || (!isApp && cfg.adsenseClient) || cfg.simulateAds);
+const clock = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? `${h}h ${m}m` : `${m}:${String(x).padStart(2, '0')}`; };
+let earnTick = null;
+function renderEarn() {
+  clearInterval(earnTick);
+  const draw = () => {
+    if (!me || $('#v-earn').hidden) return clearInterval(earnTick);
+    const now = Date.now(), e = cfg.economy;
+    const left = e.adDailyCap - (me.adsToday || 0);
+    $('#btnAd').textContent = `+${fmt(e.adReward)}`;
+    $('#btnAd').disabled = now < me.nextAd || left <= 0;
+    $('#adStatus').textContent = left <= 0 ? 'Daily limit reached. Come back tomorrow.' : now < me.nextAd ? `Next video in ${clock(me.nextAd - now)} · ${left} left today` : `Earn ${fmt(e.adReward)} credits per video · ${left} left today`;
+    $('#btnDaily').textContent = `+${fmt(e.dailyBonus)}`;
+    $('#btnDaily').disabled = now < me.nextDaily;
+    $('#dailyStatus').textContent = now < me.nextDaily ? `Ready in ${clock(me.nextDaily - now)}` : 'Ready to claim!';
+    $('#btnRefill').textContent = `+${fmt(e.refillAmount)}`;
+  };
+  draw(); earnTick = setInterval(draw, 1000);
 }
 async function start(user) {
   $('#nav').hidden = false; setMe(user);
@@ -83,9 +122,12 @@ async function start(user) {
   socket.on('connect_error', (e) => { if (e.message === 'unauthorized') logout(); });
   socket.on('disconnect', (r) => { if (r === 'io server disconnect') logout(); });
   socket.on('wallet', (w) => setMe(w));
+  socket.on('notice', (n) => showGifts([n], false));
   socket.on('tables', renderTableList);
   socket.on('table', (t) => { if (table && t.id === table.id) { table = t; renderTable(); } });
-  socket.on('tournaments:changed', () => { if (!$('#v-lobby').hidden) loadTours(); });
+  socket.on('tournaments:changed', () => { if (!$('#v-tournaments').hidden) loadTours(); });
+  if (user.inbox && user.inbox.length) showGifts(user.inbox, true);
+  if (AdMob && cfg.admobRewardedId) AdMob.initialize({}).catch(() => {});
   socket.on('connect', () => { if (table) tryEmit('table:watch', { tableId: table.id }); });
   show('lobby');
 }
@@ -145,6 +187,7 @@ function prizeText(t) {
 }
 function entryLabel(t) { return t.entryType === 'paid' ? 'Enter for ' + money(t.entryPriceCents) : t.entryType === 'credits' ? 'Enter for ' + fmt(t.entryFee) + ' credits' : 'Enter free'; }
 async function enterTour(t) {
+  if (isApp && t.entryType === 'paid') return toast('Paid entries are available on the website version.');
   const join = async (extra) => {
     try {
       await api(`/api/tournaments/${t.id}/join`, extra || {}); $('#dlg').open && $('#dlg').close(); toast('You’re in. Good luck.'); openTour(t.id);
@@ -278,9 +321,17 @@ function applyTour(d) { tour = { ...d.t, round: d.round }; renderTour(); }
 $('#btnDaily').onclick = () => api('/api/bonus/daily', {}).then((u) => { setMe(u); toast(`+${cfg.economy.dailyBonus} credits`); }).catch((e) => toast(e.message));
 $('#btnRefill').onclick = () => api('/api/bonus/refill', {}).then((u) => { setMe(u); toast(`+${cfg.economy.refillAmount} credits`); }).catch((e) => toast(e.message));
 const claimAd = () => api('/api/ads/reward', {}).then((u) => { setMe(u); toast(`+${cfg.economy.adReward} credits`); }).catch((e) => toast(e.message));
-$('#btnAd').onclick = () => {
-  if (Date.now() < me.nextAd) return toast('Next ad reward ready ' + new Date(me.nextAd).toLocaleTimeString());
-  if (cfg.adsenseClient && window.adBreak) {
+$('#btnAd').onclick = async () => {
+  if (Date.now() < me.nextAd) return toast('Next video ready in ' + clock(me.nextAd - Date.now()));
+  if (isApp && AdMob && cfg.admobRewardedId) {
+    try {
+      $('#btnAd').disabled = true;
+      await AdMob.prepareRewardVideoAd({ adId: cfg.admobRewardedId });
+      const reward = await AdMob.showRewardVideoAd();
+      if (reward) claimAd(); else toast('Watch to the end to earn credits');
+    } catch (e) { toast('No video available right now. Try again soon.'); }
+    finally { renderEarn(); }
+  } else if (cfg.adsenseClient && window.adBreak) {
     window.adBreak({ type: 'reward', name: 'bonus_credits',
       beforeReward: (showAdFn) => showAdFn(), adViewed: claimAd, adDismissed: () => toast('Watch to the end to earn credits'),
       adBreakDone: (info) => { if (info.breakStatus !== 'viewed' && info.breakStatus !== 'dismissed') toast('No ad available right now. Try later.'); } });
@@ -291,6 +342,33 @@ $('#btnAd').onclick = () => {
     $('#dlg').addEventListener('close', () => clearInterval(iv), { once: true });
   }
 };
+function showGifts(list, fromInbox) {
+  const total = list.reduce((s, n) => s + n.amount, 0);
+  openDialog(`<div class="notice"><p class="eyebrow">You got a gift</p><p class="big">+${fmt(total)}</p>
+    ${list.map((n) => n.message ? `<p>“${esc(n.message)}”</p>` : '').join('')}<p class="sub">Credits from the Riverboat team</p></div>`);
+  if (fromInbox) api('/api/inbox/clear', {}).catch(() => {});
+  else api('/api/inbox/clear', {}).catch(() => {});
+}
+function giftDialog(target) {
+  const everyone = !target;
+  openDialog(`<h3>${everyone ? 'Gift every player' : 'Give credits to ' + esc(target.name)}</h3>
+    ${everyone ? '' : `<p class="sub">${esc(target.email)} · has ${fmt(target.credits)} credits</p>`}
+    <label>Amount<input id="gAmt" type="number" value="1000" step="1"></label>
+    <div class="gift-amts">${[100, 500, 1000, 5000, 10000, 50000].map((v) => `<button class="ghost sm" data-a="${v}">${fmt(v)}</button>`).join('')}</div>
+    ${everyone ? '' : '<p class="fine">Use a negative number to take credits away.</p>'}
+    <label>Message they’ll see (optional)<input id="gMsg" maxlength="140" placeholder="Thanks for playing!"></label>
+    <button class="cta wide" id="gSend">${everyone ? 'Send to everyone' : 'Send credits'}</button>`);
+  document.querySelectorAll('[data-a]').forEach((b) => b.onclick = () => ($('#gAmt').value = b.dataset.a));
+  $('#gSend').onclick = async () => {
+    const amount = parseInt($('#gAmt').value, 10), message = $('#gMsg').value;
+    if (!amount) return toast('Enter an amount');
+    if (everyone && !confirm(`Send ${fmt(amount)} credits to every player?`)) return;
+    try {
+      const r = everyone ? await api('/api/admin/credits/everyone', { amount, message }) : await api(`/api/admin/users/${target.id}/credits`, { amount, message });
+      $('#dlg').close(); toast(everyone ? `Sent to ${fmt(r.players)} players` : `Sent ${fmt(amount)} credits`); loadAdmin();
+    } catch (e) { toast(e.message); }
+  };
+}
 function openDialog(html) { $('#dlgBody').innerHTML = html + '<p style="text-align:right"><button class="ghost" id="dlgClose">Close</button></p>'; $('#dlgClose').onclick = () => $('#dlg').close(); $('#dlg').showModal(); }
 $('#btnStore').onclick = () => {
   if (!cfg.storeEnabled) return openDialog(`<h3>Get credits</h3><p class="sub">The credit store isn’t open yet. Grab your daily bonus${cfg.adsenseClient || cfg.simulateAds ? ' or watch an ad' : ''} for free credits.</p>`);
@@ -350,18 +428,18 @@ $('#userQ').oninput = (e) => { q = e.target.value; clearTimeout(loadUsers.t); lo
 async function loadUsers() {
   const users = await api('/api/admin/users?q=' + encodeURIComponent(q));
   $('#userList').innerHTML = users.map((u) => `<div class="li"><div>${esc(u.name)} <small>${esc(u.email)}</small><br><small>${fmt(u.credits)} credits${u.banned ? ' · suspended' : ''}</small></div>
-    <div><button class="ghost sm" data-g="${u.id}">Adjust</button> ${u.id === me.id ? "" : `<button class="ghost sm" data-b="${u.id}" data-v="${u.banned ? 0 : 1}">${u.banned ? 'Unsuspend' : 'Suspend'}</button>`}</div></div>`).join('') || '<p class="empty">No players found</p>';
-  $('#userList').querySelectorAll('[data-g]').forEach((b) => b.onclick = async () => {
-    const amt = parseInt(prompt('Credits to add (use a negative number to remove):', '1000'), 10);
-    if (!amt) return;
-    try { await api(`/api/admin/users/${b.dataset.g}/credits`, { amount: amt }); loadUsers(); } catch (e) { toast(e.message); }
-  });
+    <div><button class="ghost sm" data-g="${u.id}">Give credits</button> ${u.id === me.id ? "" : `<button class="ghost sm" data-b="${u.id}" data-v="${u.banned ? 0 : 1}">${u.banned ? 'Unsuspend' : 'Suspend'}</button>`}</div></div>`).join('') || '<p class="empty">No players found</p>';
+  $('#userList').querySelectorAll('[data-g]').forEach((b) => b.onclick = () => giftDialog(users.find((u) => u.id === b.dataset.g)));
   $('#userList').querySelectorAll('[data-b]').forEach((b) => b.onclick = async () => {
     try { await api(`/api/admin/users/${b.dataset.b}/ban`, { banned: b.dataset.v === '1' }); loadUsers(); } catch (e) { toast(e.message); }
   });
 }
 async function loadAdmin() {
   if (!me?.admin) return show('lobby');
+  api('/api/admin/grants').then((gs) => {
+    $('#grantList').innerHTML = gs.map((g) => `<div class="li"><span>${esc(g.email)}</span><small>${g.amount > 0 ? '+' : ''}${fmt(g.amount)}${g.message ? ' · “' + esc(g.message) + '”' : ''} · ${new Date(g.at).toLocaleDateString()}</small></div>`).join('') || '<p class="empty">No gifts yet</p>';
+  }).catch(() => {});
+  $('#adsHint').hidden = !!(cfg.adsenseClient || cfg.admobRewardedId || cfg.simulateAds);
   const d = new Date(Date.now() + 24 * 3600e3); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   if (!tf.endsAt.value) tf.endsAt.value = d.toISOString().slice(0, 16);
   try {
@@ -379,8 +457,20 @@ async function loadAdmin() {
   } catch (e) { toast(e.message); }
 }
 $('#btnAdmin').onclick = () => show('admin');
+$('#btnGiftAll').onclick = () => giftDialog(null);
 
 window.RB21 = { api, toast, fmt, esc, cardHTML, show, setMe: (u) => setMe(u), get me() { return me; } };
+
+// ---------- embedded (e.g. Google Sites) ----------
+let framed = false;
+try { framed = window.self !== window.top; } catch { framed = true; }
+if (framed) {
+  const a = document.createElement('a');
+  a.href = location.href.split('#')[0]; a.target = '_blank'; a.rel = 'noopener'; a.className = 'popout';
+  a.textContent = 'Open full screen ↗';
+  document.querySelector('.bar').appendChild(a);
+  document.body.classList.add('framed');
+}
 
 // ---------- boot ----------
 async function boot() {
@@ -404,6 +494,6 @@ async function boot() {
   if (token) { try { start(await api('/api/me')); return; } catch {} }
   show('auth');
 }
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+try { if (!isApp && 'serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {}); } catch { /* sandboxed embed: no install/offline cache, game still works */ }
 boot();
 })();

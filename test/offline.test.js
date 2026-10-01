@@ -35,6 +35,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(320);
   const d = await off.api('/api/games/poker/deal', { bet: 20 }); assert.strictEqual(d.hand.length, 5);
 
+  // New games offline
+  await wait(320); r = await off.api('/api/games/dice', { bet: 10, chance: 50, over: true }); assert.ok('roll' in r);
+  await wait(320); r = await off.api('/api/games/plinko', { bet: 10, risk: 'low' }); assert.strictEqual(r.path.length, 12);
+  await wait(320); r = await off.api('/api/games/mines/start', { bet: 10, mines: 1 }); assert.strictEqual(r.active, true);
+  r = await off.api('/api/games/mines/reveal', { cell: 0 }); if (!r.bomb) await off.api('/api/games/mines/cashout', {});
+  await wait(320); r = await off.api('/api/games/crash/start', { bet: 10, auto: 1.01 }); assert.strictEqual(r.phase, 'running');
+  await wait(300); r = await off.api('/api/games/crash'); assert.ok(r.phase !== 'running');
   // Blackjack against the dealer through the local socket
   const sock = off.socket(); let state = null;
   sock.on('table', (t) => { state = t; });

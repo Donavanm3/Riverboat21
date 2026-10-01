@@ -1,6 +1,6 @@
 // Makes the game installable and playable offline. Online game traffic (/api, /socket.io) is never cached.
-const CACHE = 'rb21-v2';
-const CORE = ['./', 'index.html', 'style.css', 'config.js', 'engine.js', 'offline.js', 'app.js', 'games.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'rb21-v3';
+const CORE = ['./', 'index.html', 'style.css', 'config.js', 'engine.js', 'offline.js', 'app.js', 'games.js', 'games2.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
 });

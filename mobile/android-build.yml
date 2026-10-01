@@ -1,0 +1,62 @@
+# Copy this file to .github/workflows/android-build.yml in your repo (Add file → Create new file).
+# Then: Actions tab → "Build Android app" → Run workflow. Download the app from the run's Artifacts.
+name: Build Android app
+on:
+  workflow_dispatch:
+    inputs:
+      make_keystore:
+        description: 'First time only: create the signing key needed for Google Play'
+        type: boolean
+        default: false
+jobs:
+  keystore:
+    if: ${{ inputs.make_keystore }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create upload key
+        run: |
+          PASS=$(openssl rand -hex 16)
+          keytool -genkeypair -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$PASS" -keypass "$PASS" -dname "CN=Riverboat 21, O=Dashlith"
+          mkdir out
+          base64 -w0 upload.jks > out/ANDROID_KEYSTORE_BASE64.txt
+          printf '%s' "$PASS" > out/ANDROID_KEYSTORE_PASSWORD.txt
+          printf 'upload' > out/ANDROID_KEY_ALIAS.txt
+      - uses: actions/upload-artifact@v4
+        with: { name: signing-key-SAVE-THIS, path: out, retention-days: 1 }
+
+  android:
+    if: ${{ !inputs.make_keystore }}
+    runs-on: ubuntu-latest
+    env:
+      RB21_API: ${{ vars.API_URL || 'https://riverboat21.onrender.com' }}
+      ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
+      VERSION_CODE: ${{ github.run_number }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - name: Prepare app
+        working-directory: mobile
+        run: npm install --no-audit --no-fund && npm run android:prepare
+      - name: Build
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            ./gradlew assembleRelease bundleRelease --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
+          mkdir -p ../../app-output
+          find app/build/outputs -name '*.apk' -exec cp {} ../../app-output/ \;
+          find app/build/outputs -name '*.aab' -exec cp {} ../../app-output/ \;
+          ls -l ../../app-output
+      - uses: actions/upload-artifact@v4
+        with: { name: riverboat21-android, path: app-output }

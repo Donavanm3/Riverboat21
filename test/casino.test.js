@@ -65,3 +65,24 @@ for (let i = 0; i < 200000; i++) bk += c.playBaccarat({ banker: 100 }, shoe.take
 const bkRtp = bk / (200000 * 100);
 assert.ok(bkRtp > 0.97 && bkRtp < 1.0, 'banker RTP ' + bkRtp);
 console.log(`casino ok (slots RTP ${sim.toFixed(4)}, banker RTP ${bkRtp.toFixed(4)})`);
+
+// ---- dice, mines, plinko, crash ----
+{
+  let tot = 0;
+  for (let r = 0; r < 10000; r++) tot += c.rollDice(100, 49.5, false, r).payout;
+  assert.ok(Math.abs(tot / 1e6 - 0.99) < 0.001, 'dice exact RTP');
+  assert.throws(() => c.rollDice(10, 99));
+  const d = c.rollDice(10, 50, true, 5000); assert.strictEqual(d.win, true); assert.strictEqual(d.payout, 19);
+  assert.strictEqual(c.rollDice(10, 50, true, 4999).win, false);
+  const st = c.minesStart(100, 24);
+  const safe = [...Array(25).keys()].find((x) => !st.bombs.includes(x));
+  const rv = c.minesReveal(st, safe); assert.strictEqual(rv.done, true); assert.strictEqual(rv.payout, Math.floor(100 * 24.75));
+  const st2 = c.minesStart(100, 5); const bomb = st2.bombs[0];
+  assert.strictEqual(c.minesReveal(st2, bomb).bomb, true); assert.throws(() => c.minesCashout(st2));
+  assert.throws(() => c.minesCashout(c.minesStart(10, 3)), /at least one/);
+  const pl = c.dropPlinko(100, 'high', [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]); assert.strictEqual(pl.payout, 17000);
+  let pt = 0; for (let i = 0; i < 100000; i++) pt += c.dropPlinko(10, 'medium').payout;
+  assert.ok(pt / 1e6 > 0.95 && pt / 1e6 < 1.03, 'plinko RTP ' + pt / 1e6);
+  assert.strictEqual(c.crashAt(c.crashTime(5)), 5);
+  console.log('new games ok');
+}

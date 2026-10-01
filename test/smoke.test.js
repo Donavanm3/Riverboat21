@@ -67,6 +67,12 @@ let server, store;
   assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'https://deer.github.io');
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://anyone.github.io' } });
   assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'https://anyone.github.io', 'GitHub Pages allowed');
+  for (const o of ['https://tinidrop.com', 'https://riverboat21.tinidrop.app']) {
+    cr = await fetch(base + '/api/config', { headers: { Origin: o } });
+    assert.strictEqual(cr.headers.get('access-control-allow-origin'), o, 'TiniDrop allowed: ' + o);
+  }
+  cr = await fetch(base + '/api/config', { headers: { Origin: 'https://tinidrop.com.evil.example' } });
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), null);
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://x.github.io.evil.example' } });
   assert.strictEqual(cr.headers.get('access-control-allow-origin'), null);
   cr = await fetch(base + '/api/config', { headers: { Origin: 'https://evil.example' } });
@@ -213,6 +219,40 @@ let server, store;
   assert.strictEqual((await api('/api/games/slots', { bet: 1e9 }, A.token)).status, 400);
   await wait();
   assert.strictEqual((await api('/api/games/roulette', { bets: [{ type: 'red', amount: 99999999 }] }, A.token)).status, 400);
+
+  // New games: dice, plinko, mines, crash
+  await wait(); before2 = bal();
+  g = await api('/api/games/dice', { bet: 100, chance: 50, over: true }, A.token);
+  assert.strictEqual(g.status, 200, JSON.stringify(g.body)); assert.strictEqual(bal(), before2 - 100 + g.body.payout);
+  await wait(); before2 = bal();
+  g = await api('/api/games/plinko', { bet: 50, risk: 'high' }, A.token);
+  assert.strictEqual(g.status, 200); assert.strictEqual(g.body.path.length, 12); assert.strictEqual(bal(), before2 - 50 + g.body.payout);
+  await wait(); before2 = bal();
+  g = await api('/api/games/mines/start', { bet: 40, mines: 3 }, A.token); assert.strictEqual(g.status, 200); assert.strictEqual(g.body.bombs, undefined, 'bombs hidden');
+  let mr; for (let c = 0; c < 25; c++) { mr = await api('/api/games/mines/reveal', { cell: c }, A.token); if (mr.body.bomb || c === 1) break; }
+  if (!mr.body.bomb) mr = await api('/api/games/mines/cashout', {}, A.token);
+  assert.ok(Array.isArray(mr.body.bombs)); assert.strictEqual(bal(), before2 - 40 + mr.body.payout);
+  await wait(); before2 = bal();
+  g = await api('/api/games/crash/start', { bet: 30, auto: 1.01 }, A.token); assert.strictEqual(g.body.phase, 'running');
+  await new Promise((r) => setTimeout(r, 400));
+  g = await api('/api/games/crash', null, A.token); assert.ok(['cashed', 'crashed'].includes(g.body.phase), g.body.phase);
+  assert.strictEqual(bal(), before2 - 30 + g.body.payout);
+  assert.strictEqual(store.data.users[A.user.id].escrow, 0);
+
+  // Admin gifts with a message; player sees it in their inbox
+  r = await api(`/api/admin/users/${A.user.id}/credits`, { amount: 777, message: 'Thanks for playing!' }, admin.token);
+  assert.strictEqual(r.status, 200);
+  let mine = (await api('/api/me', null, A.token)).body;
+  assert.strictEqual(mine.inbox.at(-1).amount, 777); assert.strictEqual(mine.inbox.at(-1).message, 'Thanks for playing!');
+  await api('/api/inbox/clear', {}, A.token);
+  assert.strictEqual((await api('/api/me', null, A.token)).body.inbox.length, 0);
+  const everyoneBefore = store.data.users[B.user.id].credits;
+  r = await api('/api/admin/credits/everyone', { amount: 100, message: 'Weekend bonus' }, admin.token);
+  assert.ok(r.body.players >= 3); assert.strictEqual(store.data.users[B.user.id].credits, everyoneBefore + 100);
+  assert.strictEqual((await api('/api/admin/credits/everyone', { amount: 100 }, A.token)).status, 403);
+  assert.ok((await api('/api/admin/grants', null, admin.token)).body.length >= 4);
+  cr = await fetch(base + '/api/config', { headers: { Origin: 'capacitor://localhost' } });
+  assert.strictEqual(cr.headers.get('access-control-allow-origin'), 'capacitor://localhost', 'mobile app origin');
 
   // Admin credit adjust and suspend
   r = await api(`/api/admin/users/${B.user.id}/credits`, { amount: 5000 }, admin.token); assert.strictEqual(r.status, 200);

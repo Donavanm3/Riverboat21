@@ -1,0 +1,21 @@
+{
+  "name": "riverboat21-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Android/iOS app wrapper for Riverboat 21 (Capacitor)",
+  "scripts": {
+    "www": "node scripts/prepare-www.js",
+    "android:prepare": "node scripts/prepare-www.js && node scripts/add-platform.js android && capacitor-assets generate --android --iconBackgroundColor \"#0b0f19\" --splashBackgroundColor \"#0b0f19\" && cap sync android && node scripts/patch-android.js",
+    "ios:prepare": "node scripts/prepare-www.js && node scripts/add-platform.js ios && capacitor-assets generate --ios --iconBackgroundColor \"#0b0f19\" --splashBackgroundColor \"#0b0f19\" && cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor-community/admob": "^8.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2"
+  }
+}

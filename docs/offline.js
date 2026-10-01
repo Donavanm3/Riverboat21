@@ -3,6 +3,9 @@
 // Credits are practice credits saved on this device only. No accounts, store, ads or tournaments.
 (() => {
   const KEY = 'rb21_offline_v1';
+  let storage;
+  try { const k = '__rb21o'; window.localStorage.setItem(k, '1'); window.localStorage.removeItem(k); storage = window.localStorage; }
+  catch { const m = {}; storage = { getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: (k) => { delete m[k]; } }; }
   const UID = 'local';
   let ready = null;
 
@@ -16,13 +19,13 @@
     const { createGames } = E('./games-service');
 
     let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { saved = null; }
+    try { saved = JSON.parse(storage.getItem(KEY) || 'null'); } catch { saved = null; }
     const user = saved && saved.user ? saved.user : { id: UID, name: 'Player', credits: ECONOMY.signupBonus, escrow: 0, createdAt: Date.now() };
     const store = {
       data: { users: { [UID]: user } },
       t: null,
       save() { clearTimeout(this.t); this.t = setTimeout(() => this.flush(), 150); },
-      flush() { try { localStorage.setItem(KEY, JSON.stringify({ user })); } catch { /* storage full or blocked */ } },
+      flush() { try { storage.setItem(KEY, JSON.stringify({ user })); } catch { /* storage full or blocked */ } },
     };
     window.addEventListener('pagehide', () => store.flush());
 
@@ -33,7 +36,7 @@
     const tables = new TableManager(TABLES, { wallet, onChange: (t) => { if (watching === t.id) fire('table', t.view()); fire('tables', tables.list()); } });
     const games = createGames(wallet);
     const me = () => ({ id: UID, email: '', name: user.name, credits: user.credits, escrow: user.escrow || 0, admin: false, offline: true, stats: user.stats || null,
-      nextDaily: (user.lastDaily || 0) + ECONOMY.dailyCooldownMs, nextAd: Infinity });
+      nextDaily: (user.lastDaily || 0) + ECONOMY.dailyCooldownMs, nextAd: Infinity, adsToday: 0, inbox: [] });
 
     const routes = {
       'GET /api/config': () => ({ offline: true, adsenseClient: '', simulateAds: false, storeEnabled: false, packs: [], economy: ECONOMY }),
@@ -54,6 +57,16 @@
       'GET /api/games/poker': () => games.pokerState(UID),
       'POST /api/games/poker/deal': (b) => games.pokerDeal(UID, b),
       'POST /api/games/poker/draw': (b) => games.pokerDraw(UID, b),
+      'POST /api/games/dice': (b) => games.dice(UID, b),
+      'POST /api/games/plinko': (b) => games.plinko(UID, b),
+      'GET /api/games/mines': () => games.minesView(UID),
+      'POST /api/games/mines/start': (b) => games.minesStart(UID, b),
+      'POST /api/games/mines/reveal': (b) => games.minesReveal(UID, b),
+      'POST /api/games/mines/cashout': () => games.minesCashout(UID),
+      'GET /api/games/crash': () => games.crashView(UID),
+      'POST /api/games/crash/start': (b) => games.crashStart(UID, b),
+      'POST /api/games/crash/cashout': () => games.crashCashout(UID),
+      'POST /api/inbox/clear': () => ({ ok: true }),
     };
     function api(path, body, method) {
       const m = method || (body ? 'POST' : 'GET');
@@ -90,7 +103,7 @@
       };
       return sock;
     }
-    function reset() { localStorage.removeItem(KEY); }
+    function reset() { storage.removeItem(KEY); }
     ready = { api, socket, me, reset };
     return ready;
   }

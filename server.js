@@ -35,6 +35,8 @@ store.remote = global.__RB21_REMOTE || null; // set by start.js when DATABASE_UR
 const D = store.data;
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 const isAdmin = (u) => !!u && u.email === ADMIN_EMAIL;
+// Rewarded ads: AdSense (website) and/or AdMob (mobile app). SIMULATE_ADS is for testing only.
+const ADS_ENABLED = !!(process.env.ADSENSE_CLIENT || process.env.ADMOB_REWARDED_ID || process.env.SIMULATE_ADS === 'true');
 
 // ---- admin account: created from env, the admin email can never be claimed through sign-up ----
 if (!D.emailIndex[ADMIN_EMAIL] && process.env.ADMIN_PASSWORD) {
@@ -51,7 +53,11 @@ const app = express();
 const server = http.createServer(app);
 // GitHub Pages sites (https://NAME.github.io) are always allowed, so the page works there with no extra setup.
 // Safe because sign-in uses a bearer token in the page's own storage, not cookies.
-const originAllowed = (origin) => ALLOWED_ORIGINS.has(origin) || /^https:\/\/[a-z0-9-]+\.github\.io$/i.test(origin);
+// The Android/iOS app (Capacitor) loads from https://localhost or capacitor://localhost.
+const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost', 'http://localhost']);
+// Static hosts that serve the game page: GitHub Pages and TiniDrop (tinidrop.com/api/site/<slug>/ or <name>.tinidrop.app).
+const STATIC_HOSTS = [/^https:\/\/[a-z0-9-]+\.github\.io$/i, /^https:\/\/(www\.)?tinidrop\.com$/i, /^https:\/\/[a-z0-9-]+\.tinidrop\.app$/i];
+const originAllowed = (origin) => ALLOWED_ORIGINS.has(origin) || APP_ORIGINS.has(origin) || STATIC_HOSTS.some((re) => re.test(origin));
 const io = new Server(server, { cors: { origin: (origin, cb) => cb(null, !origin || originAllowed(origin)), methods: ['GET', 'POST'] } });
 
 const wallet = new Wallet(store, (uid) => {
@@ -98,7 +104,8 @@ function auth(req, res, next) {
 function admin(req, res, next) { if (!isAdmin(req.user)) return res.status(403).json({ error: 'Admins only' }); next(); }
 const wrap = (fn) => (req, res) => { try { const out = fn(req, res); if (out !== undefined) res.json(out); } catch (e) { res.status(400).json({ error: e.message }); } };
 const me = (u) => ({ id: u.id, email: u.email, name: u.name, credits: u.credits, escrow: u.escrow || 0, admin: isAdmin(u), stats: u.stats || null,
-  nextDaily: (u.lastDaily || 0) + ECONOMY.dailyCooldownMs, nextAd: (u.lastAd || 0) + ECONOMY.adCooldownMs });
+  nextDaily: (u.lastDaily || 0) + ECONOMY.dailyCooldownMs, nextAd: (u.lastAd || 0) + ECONOMY.adCooldownMs,
+  adsToday: u.adDay === new Date().toISOString().slice(0, 10) ? u.adsToday || 0 : 0, inbox: u.inbox || [] });
 
 const attempts = new Map();
 function throttle(key, max = 10, windowMs = 15 * 60000) {
@@ -113,6 +120,7 @@ app.get('/api/config', (req, res) => res.json({
   adsenseBannerSlot: process.env.ADSENSE_BANNER_SLOT || '',
   adsTestMode: process.env.ADS_TEST_MODE === 'true',
   simulateAds: process.env.SIMULATE_ADS === 'true',
+  admobRewardedId: process.env.ADMOB_REWARDED_ID || '',
   storeEnabled: !!paypal, paypalClientId: paypal ? process.env.PAYPAL_CLIENT_ID : '', paypalEnv: PAYPAL_ENV, packs: CREDIT_PACKS, economy: ECONOMY,
 }));
 
@@ -140,6 +148,7 @@ app.post('/api/auth/login', wrap((req) => {
   return { token: sign(u), user: me(u) };
 }));
 app.get('/api/me', auth, (req, res) => res.json(me(req.user)));
+app.post('/api/inbox/clear', auth, wrap((req) => { req.user.inbox = []; store.save(); return { ok: true }; }));
 
 // ---- free credits ----
 app.post('/api/bonus/daily', auth, wrap((req) => {
@@ -157,7 +166,7 @@ app.post('/api/bonus/refill', auth, wrap((req) => {
 }));
 app.post('/api/ads/reward', auth, wrap((req) => {
   const u = req.user, now = Date.now(), day = new Date().toISOString().slice(0, 10);
-  if (!process.env.ADSENSE_CLIENT && process.env.SIMULATE_ADS !== 'true') throw new Error('Ads are not set up');
+  if (!ADS_ENABLED) throw new Error('Ads are not set up');
   if (u.adDay !== day) { u.adDay = day; u.adsToday = 0; }
   if (u.adsToday >= ECONOMY.adDailyCap) throw new Error('Daily ad limit reached');
   if (now < (u.lastAd || 0) + ECONOMY.adCooldownMs) throw new Error('Next ad reward is not ready yet');
@@ -175,6 +184,15 @@ app.post('/api/games/baccarat', auth, wrap((req) => games.baccarat(req.user.id, 
 app.get('/api/games/poker', auth, wrap((req) => games.pokerState(req.user.id)));
 app.post('/api/games/poker/deal', auth, wrap((req) => games.pokerDeal(req.user.id, req.body)));
 app.post('/api/games/poker/draw', auth, wrap((req) => games.pokerDraw(req.user.id, req.body)));
+app.post('/api/games/dice', auth, wrap((req) => games.dice(req.user.id, req.body)));
+app.post('/api/games/plinko', auth, wrap((req) => games.plinko(req.user.id, req.body)));
+app.get('/api/games/mines', auth, wrap((req) => games.minesView(req.user.id)));
+app.post('/api/games/mines/start', auth, wrap((req) => games.minesStart(req.user.id, req.body)));
+app.post('/api/games/mines/reveal', auth, wrap((req) => games.minesReveal(req.user.id, req.body)));
+app.post('/api/games/mines/cashout', auth, wrap((req) => games.minesCashout(req.user.id)));
+app.get('/api/games/crash', auth, wrap((req) => games.crashView(req.user.id)));
+app.post('/api/games/crash/start', auth, wrap((req) => games.crashStart(req.user.id, req.body)));
+app.post('/api/games/crash/cashout', auth, wrap((req) => games.crashCashout(req.user.id)));
 
 // ---- tournaments ----
 app.get('/api/tournaments', auth, wrap((req) => Object.values(tours.all())
@@ -253,13 +271,35 @@ app.get('/api/admin/users', auth, admin, wrap((req) => {
     .sort((a, b) => b.createdAt - a.createdAt).slice(0, 100)
     .map((u) => ({ id: u.id, email: u.email, name: u.name, credits: u.credits, banned: !!u.banned, createdAt: u.createdAt, stats: u.stats || null }));
 }));
+// Admin credit gifts: logged, and the player gets a message the moment it lands (or on next sign-in).
+D.grants = D.grants || [];
+function grant(u, amt, message, by) {
+  const ok = amt > 0 ? wallet.credit(u.id, amt) : wallet.debit(u.id, -amt);
+  if (!ok) return false;
+  const note = { amount: amt, message: String(message || '').slice(0, 140), at: Date.now() };
+  if (amt > 0) {
+    u.inbox = [...(u.inbox || []), note].slice(-10);
+    io.to('user:' + u.id).emit('notice', note);
+  }
+  D.grants.unshift({ uid: u.id, email: u.email, amount: amt, message: note.message, by, at: note.at });
+  D.grants.length = Math.min(D.grants.length, 300);
+  store.save();
+  return true;
+}
 app.post('/api/admin/users/:id/credits', auth, admin, wrap((req) => {
   const u = D.users[req.params.id]; const amt = Number(req.body.amount);
-  if (!u || !Number.isInteger(amt) || amt === 0) throw new Error('Pick a user and a non-zero whole amount');
-  const ok = amt > 0 ? wallet.credit(u.id, amt) : wallet.debit(u.id, -amt);
-  if (!ok) throw new Error('Could not adjust (not enough credits to remove?)');
+  if (!u || !Number.isInteger(amt) || amt === 0 || Math.abs(amt) > 1e8) throw new Error('Pick a player and a whole amount (not zero)');
+  if (!grant(u, amt, req.body.message, req.user.email)) throw new Error('Could not adjust (not enough credits to remove?)');
   return { credits: u.credits };
 }));
+app.post('/api/admin/credits/everyone', auth, admin, wrap((req) => {
+  const amt = Number(req.body.amount);
+  if (!Number.isInteger(amt) || amt < 1 || amt > 1e7) throw new Error('Amount from 1 to 10,000,000');
+  let n = 0;
+  for (const u of Object.values(D.users)) if (!u.banned && grant(u, amt, req.body.message, req.user.email)) n++;
+  return { players: n };
+}));
+app.get('/api/admin/grants', auth, admin, wrap(() => D.grants.slice(0, 100)));
 app.post('/api/admin/users/:id/ban', auth, admin, wrap((req) => {
   const u = D.users[req.params.id];
   if (!u || isAdmin(u)) throw new Error('Cannot change this account');

@@ -3,37 +3,58 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Riverboat 21 — play-money blackjack</title>
+<title>Riverboat 21 · Free social casino</title>
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;800&family=Rye&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#2e0d14">
+<meta name="theme-color" content="#0b0f19">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Riverboat 21">
 </head>
 <body>
-<header class="bar">
-  <a class="logo" href="#" data-go="lobby">Riverboat 21</a>
-  <nav id="nav" hidden>
-    <span class="offline-badge">Offline practice</span>
-    <span class="purse" title="Play credits"><b id="credits">0</b> credits</span>
-    <button class="ghost" id="btnDaily">Daily bonus</button>
-    <button class="ghost" id="btnAd" hidden>Watch ad</button>
-    <button class="ghost" id="btnRefill" hidden>Refill</button>
-    <button class="brass" id="btnStore">Get credits</button>
-    <button class="ghost" id="btnAdmin" hidden>Admin</button>
-    <button class="ghost" id="btnLogout">Sign out</button>
-  </nav>
+<header class="top">
+  <a class="brand" href="#" data-go="lobby"><span class="brand-mark">21</span><span class="brand-name">Riverboat</span></a>
+  <div id="nav" class="top-actions" hidden>
+    <span class="offline-badge">Offline</span>
+    <button class="wallet" data-go="earn" title="Earn more credits"><span class="coin" aria-hidden="true"></span><b id="credits">0</b><span class="plus" aria-hidden="true">+</span></button>
+    <button class="ghost sm" id="btnAdmin" hidden>Admin</button>
+    <button class="ghost sm" id="btnLogout">Sign out</button>
+  </div>
 </header>
 
-<main>
-  <section id="v-auth" class="view narrow">
-    <h1 class="display">Pull up a chair.</h1>
-    <p class="lede">Multiplayer blackjack on a riverboat felt. Everything here is played with free credits that have no cash value.</p>
-    <form id="authForm" class="panel">
+<div class="shell">
+  <nav class="side" id="side" hidden aria-label="Main">
+    <a href="#" data-go="lobby"><span class="ni">⌂</span>Home</a>
+    <a href="#" data-go="earn"><span class="ni">＋</span>Earn credits</a>
+    <a href="#" data-go="tournaments" class="online-only"><span class="ni">♛</span>Tournaments</a>
+    <div class="side-games">
+      <p class="side-label">Games</p>
+      <a href="#" data-go="tables"><span class="dot g-bj"></span>Blackjack</a>
+      <a href="#" data-go="roulette"><span class="dot g-rl"></span>Roulette</a>
+      <a href="#" data-go="slots"><span class="dot g-sl"></span>Slots</a>
+      <a href="#" data-go="crash"><span class="dot g-cr"></span>Crash</a>
+      <a href="#" data-go="mines"><span class="dot g-mn"></span>Mines</a>
+      <a href="#" data-go="plinko"><span class="dot g-pl"></span>Plinko</a>
+      <a href="#" data-go="dice"><span class="dot g-dc"></span>Dice</a>
+      <a href="#" data-go="poker"><span class="dot g-vp"></span>Video Poker</a>
+      <a href="#" data-go="baccarat"><span class="dot g-bc"></span>Baccarat</a>
+    </div>
+  </nav>
+
+  <main>
+  <section id="v-auth" class="view">
+    <div class="auth">
+      <div class="auth-hero">
+        <p class="eyebrow">Free social casino</p>
+        <h1 class="display">Play smart.<br><span class="grad">Never real money.</span></h1>
+        <p class="lede">Blackjack with friends, plus roulette, slots, crash, mines, plinko and more. Everything runs on free play credits with no cash value.</p>
+        <div class="hero-chips"><span>9 games</span><span>Live multiplayer</span><span>Works offline</span></div>
+      </div>
+      <div class="auth-forms">
+        <form id="authForm" class="panel">
       <div class="tabs"><button type="button" data-mode="login" class="on">Sign in</button><button type="button" data-mode="register">Create account</button></div>
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
       <label class="reg" hidden>Display name<input name="name" maxlength="20" autocomplete="nickname"></label>
@@ -42,34 +63,69 @@
       <p class="err" id="authErr"></p>
       <p class="fine">You must be 18 or older to play. Credits can’t be cashed out or traded for money or prizes.</p>
     </form>
-    <div class="panel offline-card">
-      <p class="err" id="authNote"></p>
-      <button class="ghost wide" id="btnOffline" type="button">Play offline with practice credits</button>
-      <p class="fine">No account or internet needed. Blackjack and all casino games, saved on this device. Tournaments, the store, and multiplayer need the online mode.</p>
-      <p class="fine install-tip">Tip: add this page to your home screen (Share → Add to Home Screen, or the install icon in your browser) to use it like an app.</p>
+        <div class="panel offline-card">
+          <p class="note" id="authNote"></p>
+          <button class="ghost wide" id="btnOffline" type="button">Play offline with practice credits</button>
+          <p class="fine">No account or internet needed. Credits stay on this device. Tournaments, the store and multiplayer need online mode.</p>
+          <p class="fine install-tip">Tip: add this page to your home screen to use it like an app.</p>
+        </div>
+      </div>
     </div>
   </section>
 
   <section id="v-lobby" class="view" hidden>
-    <h2>Games</h2>
-    <div class="games">
-      <button class="gtile" data-go="roulette"><span class="gi">◉</span><strong>Roulette</strong><span>Single zero · pays up to 35 to 1</span></button>
-      <button class="gtile" data-go="slots"><span class="gi">7</span><strong>Slots</strong><span>5 lines · top prize 500×</span></button>
-      <button class="gtile" data-go="poker"><span class="gi">♠</span><strong>Video Poker</strong><span>Jacks or Better · royal pays 800×</span></button>
-      <button class="gtile" data-go="baccarat"><span class="gi">♦</span><strong>Baccarat</strong><span>Player, Banker, or Tie</span></button>
+    <div class="hero">
+      <div><p class="eyebrow" id="hello">Welcome back</p><h1>Pick a game</h1><p class="sub">Out of credits? Watch an ad or grab your daily bonus.</p></div>
+      <button class="cta" data-go="earn">Earn free credits</button>
     </div>
-    <h2>Blackjack tables</h2>
+    <div class="games">
+      <button class="gtile g-bj" data-go="tables"><span class="gart" aria-hidden="true">A♠</span><span class="tag">LIVE</span><strong>Blackjack</strong><span class="gsub">Live tables · up to 5 players</span></button>
+      <button class="gtile g-rl" data-go="roulette"><span class="gart" aria-hidden="true">◎</span><strong>Roulette</strong><span class="gsub">Single zero · up to 35×</span></button>
+      <button class="gtile g-sl" data-go="slots"><span class="gart" aria-hidden="true">7</span><strong>Slots</strong><span class="gsub">5 lines · up to 500×</span></button>
+      <button class="gtile g-cr" data-go="crash"><span class="gart" aria-hidden="true">↗</span><span class="tag">NEW</span><strong>Crash</strong><span class="gsub">Cash out before it crashes</span></button>
+      <button class="gtile g-mn" data-go="mines"><span class="gart" aria-hidden="true">◆</span><span class="tag">NEW</span><strong>Mines</strong><span class="gsub">Find gems, dodge mines</span></button>
+      <button class="gtile g-pl" data-go="plinko"><span class="gart" aria-hidden="true">●</span><span class="tag">NEW</span><strong>Plinko</strong><span class="gsub">Drop the ball · up to 170×</span></button>
+      <button class="gtile g-dc" data-go="dice"><span class="gart" aria-hidden="true">⚄</span><span class="tag">NEW</span><strong>Dice</strong><span class="gsub">Pick your odds</span></button>
+      <button class="gtile g-vp" data-go="poker"><span class="gart" aria-hidden="true">♠</span><strong>Video Poker</strong><span class="gsub">Jacks or Better · 800× royal</span></button>
+      <button class="gtile g-bc" data-go="baccarat"><span class="gart" aria-hidden="true">♦</span><strong>Baccarat</strong><span class="gsub">Player, Banker, or Tie</span></button>
+    </div>
+  </section>
+
+  <section id="v-tables" class="view" hidden>
+    <div class="ghead"><h1>Blackjack</h1><span class="sub">Live tables · Blackjack pays 3:2 · Dealer stands on 17</span></div>
     <div id="tableList" class="tables"></div>
-    <div class="online-only">
-      <h2>Tournaments</h2>
-      <p class="sub">Same starting stack, same number of hands. Biggest stack when the clock runs out takes it.</p>
-      <div id="tourList" class="tours"></div>
+  </section>
+
+  <section id="v-tournaments" class="view" hidden>
+    <div class="ghead"><h1>Tournaments</h1><span class="sub">Same chips, same number of hands. Biggest stack when the clock runs out wins.</span></div>
+    <div id="tourList" class="tours"></div>
+  </section>
+
+  <section id="v-earn" class="view" hidden>
+    <div class="ghead"><h1>Earn credits</h1><span class="sub">Free ways to top up. Credits are play money with no cash value.</span></div>
+    <div class="earn">
+      <div class="earn-card ec-ad" id="adCard">
+        <span class="earn-ic">▶</span><div><h3>Watch a video</h3><p id="adStatus">Earn credits for each ad you watch.</p></div>
+        <button class="cta" id="btnAd">Watch ad</button>
+      </div>
+      <div class="earn-card ec-daily">
+        <span class="earn-ic">☀</span><div><h3>Daily bonus</h3><p id="dailyStatus">Free credits every day.</p></div>
+        <button class="cta" id="btnDaily">Claim</button>
+      </div>
+      <div class="earn-card ec-refill" id="refillCard">
+        <span class="earn-ic">↺</span><div><h3>Empty wallet refill</h3><p id="refillStatus">Out of credits? Get a free refill.</p></div>
+        <button class="cta" id="btnRefill">Refill</button>
+      </div>
+      <div class="earn-card ec-store online-only app-hide">
+        <span class="earn-ic">★</span><div><h3>Credit packs</h3><p>Get a bigger stack instantly, from $0.99.</p></div>
+        <button class="cta alt" id="btnStore">See packs</button>
+      </div>
     </div>
   </section>
 
   <section id="v-table" class="view" hidden>
     <div class="felt">
-      <div class="felt-head"><button class="ghost sm" data-go="lobby">Lobby</button><span id="tName"></span><span id="tStatus" class="status"></span></div>
+      <div class="felt-head"><button class="ghost sm" data-go="tables">← Tables</button><span id="tName"></span><span id="tStatus" class="status"></span></div>
       <div class="dealer"><div class="hand" id="dealerHand"></div><div class="total" id="dealerTotal"></div></div>
       <p class="rule">Blackjack pays 3 to 2 · Dealer stands on 17</p>
       <div class="seats" id="seats"></div>
@@ -79,7 +135,7 @@
 
   <section id="v-tour" class="view" hidden>
     <div class="felt">
-      <div class="felt-head"><button class="ghost sm" data-go="lobby">Lobby</button><span id="trName"></span><span id="trStatus" class="status"></span></div>
+      <div class="felt-head"><button class="ghost sm" data-go="tournaments">← Tournaments</button><span id="trName"></span><span id="trStatus" class="status"></span></div>
       <div class="dealer"><div class="hand" id="trDealer"></div><div class="total" id="trDealerTotal"></div></div>
       <div class="solo"><div class="hands" id="trHands"></div></div>
     </div>
@@ -88,7 +144,7 @@
   </section>
 
   <section id="v-roulette" class="view" hidden>
-    <div class="ghead"><button class="ghost sm" data-go="lobby">Lobby</button><h2>Roulette</h2></div>
+    <div class="ghead"><h1>Roulette</h1><span class="sub">Single zero · 97.3% return</span></div>
     <div class="rl-top"><div class="rl-ball" id="rlBall">–</div><div class="rl-hist" id="rlHist"></div><div class="rl-msg" id="rlMsg">Place chips on the board, then spin.</div></div>
     <div class="rl-wrap"><div class="rl-board" id="rlBoard"></div></div>
     <div class="controls"><div class="chips" id="rlChips"></div><span class="sub">On the board: <b id="rlTotal">0</b></span>
@@ -96,21 +152,21 @@
   </section>
 
   <section id="v-slots" class="view" hidden>
-    <div class="ghead"><button class="ghost sm" data-go="lobby">Lobby</button><h2>Slots</h2></div>
+    <div class="ghead"><h1>Slots</h1><span class="sub">5 lines · 96.5% return</span></div>
     <div class="slot-cab"><div class="slot-grid" id="slGrid"></div><div class="rl-msg" id="slMsg">5 lines: three rows and both diagonals.</div></div>
     <div class="controls"><button class="ghost act" id="slDown">−</button><span class="betbox">Bet <b id="slBet">25</b></span><button class="ghost act" id="slUp">+</button><button class="brass act" id="slSpin">Spin</button></div>
     <div class="board" id="slPay"></div>
   </section>
 
   <section id="v-poker" class="view" hidden>
-    <div class="ghead"><button class="ghost sm" data-go="lobby">Lobby</button><h2>Video Poker</h2></div>
+    <div class="ghead"><h1>Video Poker</h1><span class="sub">Jacks or Better 9/6</span></div>
     <div class="felt vp"><div class="vp-hand" id="vpHand"></div><div class="rl-msg" id="vpMsg">Deal, tap cards to hold, then draw.</div></div>
     <div class="controls"><button class="ghost act" id="vpDown">−</button><span class="betbox">Bet <b id="vpBet">10</b></span><button class="ghost act" id="vpUp">+</button><button class="brass act" id="vpGo">Deal</button></div>
     <div class="board" id="vpPay"></div>
   </section>
 
   <section id="v-baccarat" class="view" hidden>
-    <div class="ghead"><button class="ghost sm" data-go="lobby">Lobby</button><h2>Baccarat</h2></div>
+    <div class="ghead"><h1>Baccarat</h1><span class="sub">8 decks · Banker pays 0.95</span></div>
     <div class="felt bc">
       <div class="bc-hands"><div><h3>Player <span id="bcPT"></span></h3><div class="hand" id="bcP"></div></div><div><h3>Banker <span id="bcBT"></span></h3><div class="hand" id="bcB"></div></div></div>
       <div class="rl-msg" id="bcMsg">Bet on the hand you think finishes closer to 9.</div>
@@ -123,8 +179,67 @@
     <div class="controls"><div class="chips" id="bcChips"></div><button class="ghost act" id="bcClear">Clear</button><button class="brass act" id="bcDeal">Deal</button></div>
   </section>
 
+  <section id="v-dice" class="view" hidden>
+    <div class="ghead"><h1>Dice</h1><span class="sub">Roll 0–100 · 99% return</span></div>
+    <div class="play">
+      <div class="panel ctl">
+        <label class="field">Bet<div class="betin"><input id="dcBet" type="number" min="1" step="1" value="10" inputmode="numeric"><button type="button" class="mini" data-half="dcBet">½</button><button type="button" class="mini" data-double="dcBet">2×</button></div></label>
+        <div class="seg" id="dcMode"><button class="on" data-v="over">Roll over</button><button data-v="under">Roll under</button></div>
+        <div class="stats3"><div><small>Win chance</small><b id="dcChance">50%</b></div><div><small>Multiplier</small><b id="dcMult">1.98×</b></div><div><small>Win</small><b id="dcWin">19</b></div></div>
+        <button class="cta wide big" id="dcRoll">Roll</button>
+      </div>
+      <div class="stage dice-stage">
+        <div class="dice-result" id="dcResult">50.00</div>
+        <div class="dice-track"><div class="dice-fill" id="dcFill"></div><div class="dice-mark" id="dcMark" hidden></div></div>
+        <input id="dcTarget" class="dice-range" type="range" min="2" max="98" step="1" value="50" aria-label="Target number">
+        <div class="dice-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+        <div class="hist" id="dcHist"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="v-mines" class="view" hidden>
+    <div class="ghead"><h1>Mines</h1><span class="sub">Every gem raises your multiplier · 99% return</span></div>
+    <div class="play">
+      <div class="panel ctl">
+        <label class="field">Bet<div class="betin"><input id="mnBet" type="number" min="1" step="1" value="10" inputmode="numeric"><button type="button" class="mini" data-half="mnBet">½</button><button type="button" class="mini" data-double="mnBet">2×</button></div></label>
+        <label class="field">Mines<select id="mnCount"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option><option>17</option><option>18</option><option>19</option><option>20</option><option>21</option><option>22</option><option>23</option><option>24</option></select></label>
+        <div class="stats3"><div><small>Multiplier</small><b id="mnMult">1.00×</b></div><div><small>Next tile</small><b id="mnNext">–</b></div><div><small>Cash out</small><b id="mnPay">–</b></div></div>
+        <button class="cta wide big" id="mnGo">Start</button>
+      </div>
+      <div class="stage"><div class="mines" id="mnGrid"></div><p class="msg" id="mnMsg">Choose your bet and mines, then press Start.</p></div>
+    </div>
+  </section>
+
+  <section id="v-plinko" class="view" hidden>
+    <div class="ghead"><h1>Plinko</h1><span class="sub">12 rows · up to 170× · 99% return</span></div>
+    <div class="play">
+      <div class="panel ctl">
+        <label class="field">Bet<div class="betin"><input id="plBet" type="number" min="1" step="1" value="10" inputmode="numeric"><button type="button" class="mini" data-half="plBet">½</button><button type="button" class="mini" data-double="plBet">2×</button></div></label>
+        <div class="seg" id="plRisk"><button data-v="low">Low</button><button class="on" data-v="medium">Medium</button><button data-v="high">High</button></div>
+        <button class="cta wide big" id="plDrop">Drop ball</button>
+        <p class="msg small" id="plMsg"></p>
+      </div>
+      <div class="stage plinko-stage"><canvas id="plCanvas" width="640" height="560" aria-label="Plinko board"></canvas><div class="pl-slots" id="plSlots"></div></div>
+    </div>
+  </section>
+
+  <section id="v-crash" class="view" hidden>
+    <div class="ghead"><h1>Crash</h1><span class="sub">Cash out before the rocket crashes · 99% return</span></div>
+    <div class="play">
+      <div class="panel ctl">
+        <label class="field">Bet<div class="betin"><input id="crBet" type="number" min="1" step="1" value="10" inputmode="numeric"><button type="button" class="mini" data-half="crBet">½</button><button type="button" class="mini" data-double="crBet">2×</button></div></label>
+        <label class="field">Auto cash out at (optional)<div class="betin"><input id="crAuto" type="number" min="1.01" step="0.01" placeholder="e.g. 2.00"><span class="unit">×</span></div></label>
+        <button class="cta wide big" id="crGo">Start</button>
+        <p class="msg small" id="crMsg"></p>
+      </div>
+      <div class="stage crash-stage"><canvas id="crCanvas" width="720" height="420" aria-label="Crash graph"></canvas><div class="crash-mult" id="crMult">1.00×</div><div class="hist" id="crHist"></div></div>
+    </div>
+  </section>
+
   <section id="v-admin" class="view" hidden>
-    <h2>Admin</h2>
+    <div class="ghead"><h1>Admin</h1><button class="cta" id="btnGiftAll">Gift every player</button></div>
+    <p class="panel note" id="adsHint" hidden>Video ads are off. Set <b>ADSENSE_CLIENT</b> (website) or <b>ADMOB_REWARDED_ID</b> (mobile app) on Render to turn on “Watch a video” for players.</p>
     <div class="grid2">
       <form id="tourForm" class="panel">
         <h3>Host a tournament</h3>
@@ -168,15 +283,25 @@
         <div id="userList" class="list"></div>
         <h3>Open tournaments</h3>
         <div id="adminTours" class="list"></div>
+        <h3>Credit gifts</h3>
+        <div id="grantList" class="list"></div>
         <h3>Recent purchases</h3>
         <div id="payList" class="list"></div>
       </div>
     </div>
   </section>
-</main>
+  </main>
+</div>
+
+<nav class="tabbar" id="tabbar" hidden aria-label="Main">
+  <a href="#" data-go="lobby"><span>⌂</span>Home</a>
+  <a href="#" data-go="tables"><span>A♠</span>Blackjack</a>
+  <a href="#" data-go="earn"><span>＋</span>Earn</a>
+  <a href="#" data-go="tournaments" class="online-only"><span>♛</span>Events</a>
+</nav>
 
 <div id="adBanner" class="ad-banner" hidden></div>
-<footer class="foot">Play-money game for entertainment. Credits have no cash value and can’t be withdrawn.</footer>
+<footer class="foot">Social casino for entertainment only. Credits have no cash value and can’t be withdrawn. 18+.</footer>
 
 <dialog id="dlg"><div id="dlgBody"></div></dialog>
 <div id="toast" class="toast" role="status"></div>
@@ -186,5 +311,6 @@
 <script src="offline.js"></script>
 <script src="app.js"></script>
 <script src="games.js"></script>
+<script src="games2.js"></script>
 </body>
 </html>

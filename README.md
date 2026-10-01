@@ -1,6 +1,6 @@
 # Riverboat 21
 
-Online multiplayer blackjack plus roulette, slots, video poker and baccarat, played entirely with play-money credits.
+Free social casino: live multiplayer blackjack plus roulette, slots, crash, mines, plinko, dice, video poker and baccarat, all played with play-money credits. Website, installable web app, offline mode, and an Android/iOS app project.
 
 - 4 live tables, 5 seats each, server-authoritative dealing (crypto-random 6-deck shoe)
 - Accounts (email + password), 1,000 free credits on sign-up
@@ -43,6 +43,27 @@ saved in the browser. It uses the exact same engine: `docs/engine.js` is generat
 by `npm run build` (the tests fail if it is out of date). If the online server can't be reached,
 the sign-in screen offers offline play automatically. Offline mode has no accounts, store, ads,
 tournaments or multiplayer, since those need the online engine.
+
+### Hosting the website on TiniDrop
+
+TiniDrop (tinidrop.com) hosts the game page like GitHub Pages does; the Render server keeps running the engine,
+and it already accepts requests from `tinidrop.com` and `*.tinidrop.app`.
+
+- **By hand (works from a phone):** run `npm run pack:site` (or use the ready-made `riverboat21-tinidrop-site.zip`)
+  and drag the ZIP onto tinidrop.com. Then open **Live Site**. ZIP sites need TiniDrop's Solo plan or above;
+  free links expire after 7 days.
+- **Automatically on every push:** copy `deploy/tinidrop-deploy.yml` into `.github/workflows/`, add your TiniDrop API key
+  as secret `TINIDROP_API_KEY`, run it once, then save the slug it prints as repository variable `TINIDROP_SLUG`
+  so later runs update the same link.
+- From a computer: `TINIDROP_API_KEY=td_... npm run deploy:tinidrop`.
+
+### Embedding in Google Sites
+
+Google Sites can't run the game, but it can show the GitHub page inside a Google Site:
+Insert → Embed → By URL → `https://YOUR-NAME.github.io/riverboat21/` → Insert, then drag the box
+to full width and tall. When embedded, the game shows an "Open full screen" button (recommended for
+PayPal checkout and for installing the app). If an embed blocks storage, the game keeps working and
+simply forgets sign-in on refresh.
 
 ### Server setup (Render, free)
 
@@ -118,6 +139,47 @@ All share the same credit wallet and are decided on the server (`lib/casino.js`)
 
 A video-poker bet sits in escrow until the draw; if the server restarts in between, it is refunded.
 Plays are limited to about 3 per second per player.
+
+## Watch ads for credits
+
+Players open **Earn credits** and tap **Watch a video** (default: 150 credits, 2-minute cooldown, 10 per day; change in `lib/config.js`).
+
+| Where | Ad network | Setting on Render |
+|---|---|---|
+| Website | Google AdSense (H5 Games Ads rewarded) | `ADSENSE_CLIENT=ca-pub-…` |
+| Mobile app | Google AdMob rewarded video | `ADMOB_REWARDED_ID=ca-app-pub-…/…` (+ `ADMOB_APP_ID` repo variable for the build) |
+
+The video card only appears where ads are set up. For testing the app before AdMob approves you, use Google's
+test IDs: app `ca-app-pub-3940256099942544~3347511713`, rewarded unit `ca-app-pub-3940256099942544/5224354917`.
+`SIMULATE_ADS=true` shows a fake 10-second ad for trying the flow; never leave it on in production.
+
+## Giving players credits (admin)
+
+Admin → Players → **Give credits** (quick amounts, optional message; negative numbers take credits away), or
+**Gift every player** at the top. Players see a "You got a gift" popup instantly, or the next time they sign in.
+Every gift is logged under **Credit gifts**.
+
+## Mobile app (Android, iOS)
+
+`mobile/` is a Capacitor 8 project that packages the same game (`docs/`) as a native app pointed at your server.
+In the app, the PayPal store and paid tournament entries are hidden (app stores require their own billing for
+digital goods); rewarded videos use AdMob.
+
+**Build Android from your phone (GitHub Actions):**
+1. Copy `mobile/android-build.yml` into `.github/workflows/android-build.yml` (Add file → Create new file, paste).
+2. Actions → **Build Android app** → Run workflow. When it finishes, download **riverboat21-android** from the run's
+   Artifacts and install the `.apk` on your phone to test (allow "install unknown apps").
+3. For Google Play: run the workflow once with **make_keystore** ticked, download **signing-key-SAVE-THIS**
+   (kept for 1 day; store it somewhere safe forever), and add its three values as repository secrets
+   `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`. Later runs then produce a signed
+   `.aab` to upload in the Play Console ($25 one-time developer account).
+Optional repository variables: `API_URL` (server address) and `ADMOB_APP_ID`.
+
+**iOS** needs a Mac with Xcode (or a cloud Mac service such as Codemagic) and an Apple Developer account ($99/year):
+`cd mobile && npm install && npm run ios:prepare && npx cap open ios`.
+
+Store policies: list the app as a social/simulated casino (no real-money gambling), rate it 17+/Mature, and keep
+real-prize tournaments' official rules in the app. Paid entry stays website-only.
 
 ## Rules
 

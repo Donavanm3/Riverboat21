@@ -333,10 +333,77 @@ class BaccaratShoe {
   take() { if (this.cards.length < 60) this.cards = deck(8); return this.cards; }
 }
 
+// ---------------- Dice (roll 0.00–99.99, 1% house edge) ----------------
+function rollDice(bet, chance, over, roll = rnd(10000)) {
+  if (!isInt(bet, 1, 100000)) throw new Error('Bet from 1 to 100,000');
+  const c = Number(chance);
+  if (!Number.isFinite(c) || c < 1 || c > 95 || Math.round(c * 100) !== c * 100) throw new Error('Win chance from 1% to 95%');
+  const width = Math.round(c * 100);                 // winning numbers out of 10,000
+  const target = over ? 10000 - width : width;       // over: roll >= target, under: roll < target
+  const win = over ? roll >= target : roll < target;
+  const mult = Math.floor((99 / c) * 10000) / 10000; // 0.99 / chance
+  return { roll: roll / 100, target: target / 100, over: !!over, chance: c, mult, win, payout: win ? Math.floor(bet * mult) : 0 };
+}
+
+// ---------------- Mines (5x5, choose 1–24 mines, 1% house edge) ----------------
+function minesMultiplier(mines, revealed) {
+  let m = 0.99;
+  for (let k = 0; k < revealed; k++) m *= (25 - k) / (25 - mines - k);
+  return Math.floor(m * 100) / 100;
+}
+function minesStart(bet, mines) {
+  if (!isInt(bet, 1, 100000)) throw new Error('Bet from 1 to 100,000');
+  if (!isInt(mines, 1, 24)) throw new Error('Pick 1 to 24 mines');
+  const cells = [...Array(25).keys()];
+  for (let i = 24; i > 0; i--) { const j = rnd(i + 1); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+  return { bet, mines, bombs: cells.slice(0, mines).sort((a, b) => a - b), revealed: [], over: false };
+}
+function minesReveal(st, cell) {
+  if (st.over) throw new Error('Round is over');
+  if (!isInt(cell, 0, 24) || st.revealed.includes(cell)) throw new Error('Pick a hidden tile');
+  if (st.bombs.includes(cell)) { st.over = true; st.hit = cell; return { bomb: true, payout: 0 }; }
+  st.revealed.push(cell);
+  const mult = minesMultiplier(st.mines, st.revealed.length);
+  if (st.revealed.length === 25 - st.mines) { st.over = true; return { bomb: false, mult, done: true, payout: Math.floor(st.bet * mult) }; }
+  return { bomb: false, mult, next: minesMultiplier(st.mines, st.revealed.length + 1) };
+}
+function minesCashout(st) {
+  if (st.over) throw new Error('Round is over');
+  if (!st.revealed.length) throw new Error('Reveal at least one tile first');
+  st.over = true;
+  const mult = minesMultiplier(st.mines, st.revealed.length);
+  return { mult, payout: Math.floor(st.bet * mult) };
+}
+
+// ---------------- Plinko (12 rows, ~99% return) ----------------
+const PLINKO = {
+  low: [10, 3, 1.6, 1.4, 1.1, 1, 0.5, 1, 1.1, 1.4, 1.6, 3, 10],
+  medium: [33, 11, 4, 2, 1.1, 0.6, 0.3, 0.6, 1.1, 2, 4, 11, 33],
+  high: [170, 24, 8.1, 2, 0.7, 0.2, 0.2, 0.2, 0.7, 2, 8.1, 24, 170],
+};
+function dropPlinko(bet, risk, path) {
+  if (!isInt(bet, 1, 100000)) throw new Error('Bet from 1 to 100,000');
+  if (!PLINKO[risk]) throw new Error('Pick low, medium, or high risk');
+  const p = path || Array.from({ length: 12 }, () => rnd(2)); // 0 = left, 1 = right
+  const slot = p.reduce((a, b) => a + b, 0);
+  const mult = PLINKO[risk][slot];
+  return { path: p, slot, mult, payout: Math.floor(bet * mult) };
+}
+
+// ---------------- Crash (1% house edge, cap 1000x) ----------------
+const CRASH_RATE = 10100; // ms; multiplier doubles about every 7 seconds
+const crashAt = (ms) => Math.floor(100 * Math.exp(Math.max(0, ms) / CRASH_RATE)) / 100;
+const crashTime = (mult) => Math.ceil(Math.log(mult) * CRASH_RATE);
+function crashPoint() {
+  const u = (rnd(1e9) + 1) / 1e9; // (0, 1]
+  return Math.min(1000, Math.max(1, Math.floor((99 / u)) / 100));
+}
+
 module.exports = {
   validateRoulette, spinRoulette, spinSlots, slotsRTP, SYMBOLS, LINES, CHERRY_TWO,
   PAYTABLE, evaluatePoker, pokerDeal, pokerDraw,
   validateBaccarat, playBaccarat, BaccaratShoe, bankerDraws, btotal, RED,
+  rollDice, minesStart, minesReveal, minesCashout, minesMultiplier, PLINKO, dropPlinko, crashAt, crashTime, crashPoint, CRASH_RATE,
 };
 
   },
@@ -529,6 +596,8 @@ const casino = require('./casino');
 function createGames(wallet) {
   const shoe = new casino.BaccaratShoe();
   const pokerHands = new Map(); // uid -> { bet, hand, deck }; the bet sits in escrow until the draw
+  const minesRounds = new Map(); // uid -> mines state; bet in escrow until cash out or bomb
+  const crashRounds = new Map(); // uid -> crash state; bet in escrow until cash out or crash
   const lastPlay = new Map();
   const credits = (uid) => wallet.user(uid).credits;
   function guard(uid) {
@@ -548,6 +617,8 @@ function createGames(wallet) {
       slots: { symbols: casino.SYMBOLS.map(({ id, three }) => ({ id, three })), cherryTwo: casino.CHERRY_TWO, lines: casino.LINES, rtp: casino.slotsRTP() },
       poker: { paytable: casino.PAYTABLE },
       roulette: { red: [...casino.RED] },
+      plinko: casino.PLINKO,
+      crash: { rate: casino.CRASH_RATE },
     }),
     roulette(uid, body) {
       guard(uid);
@@ -567,6 +638,106 @@ function createGames(wallet) {
       const bets = casino.validateBaccarat(body.bets);
       const stake = Object.values(bets).reduce((a, b) => a + b, 0);
       return oneShot(uid, stake, () => ({ ...casino.playBaccarat(bets, shoe.take()), bets }));
+    },
+    dice(uid, body) {
+      guard(uid);
+      const bet = Number(body.bet);
+      if (!Number.isInteger(bet) || bet < 1 || bet > 100000) throw new Error('Bet from 1 to 100,000');
+      return oneShot(uid, bet, () => casino.rollDice(bet, Number(body.chance), body.over === true));
+    },
+    plinko(uid, body) {
+      guard(uid);
+      const bet = Number(body.bet);
+      if (!Number.isInteger(bet) || bet < 1 || bet > 100000) throw new Error('Bet from 1 to 100,000');
+      return { ...oneShot(uid, bet, () => casino.dropPlinko(bet, body.risk)), risk: body.risk };
+    },
+    plinkoTables: () => casino.PLINKO,
+
+    // ----- Mines -----
+    minesView(uid) {
+      const st = minesRounds.get(uid);
+      if (!st) return { active: false };
+      const n = st.revealed.length;
+      return { active: !st.over, bet: st.bet, mines: st.mines, revealed: st.revealed, mult: n ? casino.minesMultiplier(st.mines, n) : 1, next: casino.minesMultiplier(st.mines, n + 1) };
+    },
+    minesStart(uid, body) {
+      guard(uid);
+      const cur = minesRounds.get(uid);
+      if (cur && !cur.over) throw new Error('Finish your current round first');
+      const bet = Number(body.bet), mines = Number(body.mines);
+      const st = casino.minesStart(bet, mines); // validates
+      if (!wallet.hold(uid, bet)) throw new Error('Not enough credits');
+      minesRounds.set(uid, st);
+      return { ...this.minesView(uid), credits: credits(uid) };
+    },
+    minesReveal(uid, body) {
+      const st = minesRounds.get(uid);
+      if (!st || st.over) throw new Error('Start a round first');
+      const r = casino.minesReveal(st, Number(body.cell));
+      if (r.bomb || r.done) wallet.settle(uid, st.bet, r.payout);
+      const out = { ...r, cell: Number(body.cell), revealed: st.revealed, credits: credits(uid) };
+      if (st.over) out.bombs = st.bombs;
+      return out;
+    },
+    minesCashout(uid) {
+      const st = minesRounds.get(uid);
+      if (!st || st.over) throw new Error('No round to cash out');
+      const r = casino.minesCashout(st);
+      wallet.settle(uid, st.bet, r.payout);
+      return { ...r, bombs: st.bombs, revealed: st.revealed, credits: credits(uid) };
+    },
+
+    // ----- Crash -----
+    crashView(uid) {
+      const st = crashRounds.get(uid);
+      if (!st) return { phase: 'idle' };
+      this.crashResolve(uid);
+      const now = Date.now();
+      const v = { phase: st.phase, bet: st.bet, auto: st.auto, startedAt: st.startedAt, now, credits: credits(uid) };
+      if (st.phase === 'running') v.mult = casino.crashAt(now - st.startedAt);
+      else { v.crash = st.point; v.payout = st.payout; v.cashedAt = st.cashedAt; }
+      return v;
+    },
+    crashResolve(uid) {
+      const st = crashRounds.get(uid);
+      if (!st || st.phase !== 'running') return;
+      const elapsed = Date.now() - st.startedAt;
+      if (st.auto && st.auto <= st.point && elapsed >= casino.crashTime(st.auto)) this.crashSettle(uid, st.auto);
+      else if (elapsed >= casino.crashTime(st.point)) this.crashSettle(uid, 0);
+    },
+    crashSettle(uid, mult) {
+      const st = crashRounds.get(uid);
+      if (!st || st.phase !== 'running') return;
+      clearTimeout(st.timer);
+      st.phase = mult ? 'cashed' : 'crashed';
+      st.cashedAt = mult || null;
+      st.payout = mult ? Math.floor(st.bet * mult) : 0;
+      wallet.settle(uid, st.bet, st.payout);
+    },
+    crashStart(uid, body) {
+      guard(uid);
+      const cur = crashRounds.get(uid);
+      if (cur && cur.phase === 'running') { this.crashResolve(uid); if (cur.phase === 'running') throw new Error('Round in progress'); }
+      const bet = Number(body.bet);
+      if (!Number.isInteger(bet) || bet < 1 || bet > 100000) throw new Error('Bet from 1 to 100,000');
+      let auto = body.auto == null || body.auto === '' ? null : Math.floor(Number(body.auto) * 100) / 100;
+      if (auto !== null && !(auto >= 1.01 && auto <= 1000)) throw new Error('Auto cash out from 1.01x to 1000x');
+      if (!wallet.hold(uid, bet)) throw new Error('Not enough credits');
+      const st = { bet, auto, point: casino.crashPoint(), startedAt: Date.now(), phase: 'running' };
+      const endMs = Math.min(casino.crashTime(st.point), auto && auto <= st.point ? casino.crashTime(auto) : Infinity);
+      st.timer = setTimeout(() => this.crashResolve(uid), endMs + 20);
+      crashRounds.set(uid, st);
+      return this.crashView(uid);
+    },
+    crashCashout(uid) {
+      const st = crashRounds.get(uid);
+      if (!st) throw new Error('No round running');
+      this.crashResolve(uid);
+      if (st.phase === 'running') {
+        const m = casino.crashAt(Date.now() - st.startedAt);
+        this.crashSettle(uid, m < st.point ? m : 0);
+      }
+      return this.crashView(uid);
     },
     pokerState(uid) {
       const h = pokerHands.get(uid);
