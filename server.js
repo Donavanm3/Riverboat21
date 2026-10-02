@@ -75,6 +75,13 @@ const wallet = new Wallet(store, (uid) => {
 });
 const tables = new TableManager(TABLES, { wallet, onChange: (t) => { io.to('table:' + t.id).emit('table', t.view()); io.to('lobby').emit('tables', tables.list()); } });
 const tours = new Tournaments(store, wallet, () => io.to('lobby').emit('tournaments:changed'));
+// Earn-real-money program (referrals, contests, bounties, jobs, cash tournament prizes) — see lib/money.js
+const { Money } = require('./lib/money');
+const money = new Money(store);
+tours.onFinish = (t) => {
+  if (t.prizeType !== 'cash') return;
+  for (const w of t.winners) if (w.valueCents > 0) money.tournamentPrize(w.uid, w.valueCents, t.name, t.id);
+};
 setInterval(() => tours.tick(), 15000).unref();
 
 app.disable('x-powered-by');
@@ -144,6 +151,7 @@ app.post('/api/auth/register', wrap((req) => {
   const id = crypto.randomUUID();
   D.users[id] = { id, email, name, hash: bcrypt.hashSync(password, 10), credits: ECONOMY.signupBonus, escrow: 0, createdAt: Date.now() };
   D.emailIndex[email] = id; store.save();
+  if (req.body.ref) money.attachReferral(id, req.body.ref);
   return { token: sign(D.users[id]), user: me(D.users[id]) };
 }));
 app.post('/api/auth/login', wrap((req) => {
@@ -256,6 +264,7 @@ app.post('/api/paypal/orders/:id/capture', auth, async (req, res) => {
       const pack = CREDIT_PACKS.find((p) => p.id === o.packId);
       pay.packId = pack.id; pay.credits = pack.credits;
       wallet.credit(o.uid, pack.credits); message = `+${pack.credits.toLocaleString()} credits`;
+      money.onPurchase(o.uid, id, cap.amountCents, cap.captureId);
     } else {
       pay.tournamentId = o.tournamentId;
       const ok = tours.joinPaid(o.tournamentId, o.uid, cap.captureId, cap.amountCents);
@@ -263,7 +272,7 @@ app.post('/api/paypal/orders/:id/capture', auth, async (req, res) => {
         pay.refunded = true;
         paypal.refund(cap.captureId).catch((e) => console.error('[refund failed]', cap.captureId, e.message));
         message = 'The tournament filled up or closed, so your payment was refunded.';
-      } else message = 'You’re entered. Good luck.';
+      } else { message = 'You’re entered. Good luck.'; money.onPurchase(o.uid, id, cap.amountCents, cap.captureId); }
     }
     D.payments[id] = pay; store.save();
     res.json({ ok: true, message, user: me(req.user), tournamentId: o.tournamentId });
@@ -329,12 +338,32 @@ app.post('/api/admin/tournaments/:id/cancel', auth, admin, wrap((req) => {
   const refunds = tours.cancel(req.params.id);
   for (const r of refunds) {
     if (!paypal) { console.error('[refund needed, PayPal not configured]', r.paymentIntent); continue; }
+    money.voidSource(r.paymentIntent, 'Tournament cancelled, entry refunded');
     paypal.refund(r.paymentIntent)
       .then(() => { for (const p of Object.values(D.payments)) if (p.captureId === r.paymentIntent) p.refunded = true; store.save(); })
       .catch((e) => console.error('[refund failed]', r.paymentIntent, e.message));
   }
   return { ok: true, refunds: refunds.length };
 }));
+
+// ---- earn real money (website only; never tied to casino results) ----
+app.get('/api/money', auth, wrap((req) => money.playerView(req.user.id, CLIENT_URL)));
+app.post('/api/money/join', auth, wrap((req) => { money.join(req.user.id, req.body); return money.playerView(req.user.id, CLIENT_URL); }));
+app.post('/api/money/payout', auth, wrap((req) => { money.requestPayout(req.user.id, req.body.paypalEmail); return money.playerView(req.user.id, CLIENT_URL); }));
+app.get('/api/opportunities', auth, wrap((req) => money.oppsView(req.user.id)));
+app.post('/api/opportunities/:id/submit', auth, wrap((req) => { money.submit(req.user.id, req.params.id, req.body); return money.oppsView(req.user.id); }));
+app.get('/api/admin/money', auth, admin, wrap(() => money.adminView()));
+app.post('/api/admin/money/settings', auth, admin, wrap((req) => money.updateSettings(req.body)));
+app.post('/api/admin/money/codes', auth, admin, wrap((req) => { money.setCreatorCode(req.body.email, req.body.code, req.body.percent); return money.adminView(); }));
+app.post('/api/admin/money/codes/:code/delete', auth, admin, wrap((req) => { money.removeCode(req.params.code); return money.adminView(); }));
+app.post('/api/admin/money/opps', auth, admin, wrap((req) => { money.createOpp(req.body); return money.adminView(); }));
+app.post('/api/admin/money/opps/:id/close', auth, admin, wrap((req) => { money.closeOpp(req.params.id); return money.adminView(); }));
+app.post('/api/admin/money/submissions/:id/award', auth, admin, wrap((req) => { money.award(req.params.id, Math.round(Number(req.body.dollars) * 100), req.body.note); return money.adminView(); }));
+app.post('/api/admin/money/submissions/:id/decline', auth, admin, wrap((req) => { money.rejectSubmission(req.params.id); return money.adminView(); }));
+app.post('/api/admin/money/payouts/:id/paid', auth, admin, wrap((req) => { money.settlePayout(req.params.id, true, req.body.note); return money.adminView(); }));
+app.post('/api/admin/money/payouts/:id/reject', auth, admin, wrap((req) => { money.settlePayout(req.params.id, false, req.body.note); return money.adminView(); }));
+app.post('/api/admin/money/earnings/:id/void', auth, admin, wrap((req) => { money.voidEntry(req.params.id, req.body.reason); return money.adminView(); }));
+app.post('/api/admin/money/w9/:uid', auth, admin, wrap((req) => { money.setW9(req.params.uid, req.body.onFile === true); return money.adminView(); }));
 
 // ---- realtime ----
 const socketsPerUser = new Map();

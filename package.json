@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node start.js",
-    "test": "node scripts/build-engine.js --check && node test/engine.test.js && node test/casino.test.js && node test/offline.test.js && node test/tinidrop.test.js && node test/smoke.test.js && node test/pg.test.js",
+    "test": "node scripts/build-engine.js --check && node test/engine.test.js && node test/casino.test.js && node test/offline.test.js && node test/money.test.js && node test/tinidrop.test.js && node test/smoke.test.js && node test/pg.test.js",
     "build": "node scripts/build-engine.js",
     "pack:site": "node scripts/pack-site.js",
     "deploy:tinidrop": "node scripts/deploy-tinidrop.js"

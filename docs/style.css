@@ -310,3 +310,22 @@ dialog::backdrop{background:#000b;backdrop-filter:blur(3px)}
 .src{font-size:.68rem;font-weight:800;padding:.1em .5em;border-radius:999px;margin-left:4px;text-transform:uppercase;letter-spacing:.05em}
 .src.admin{background:#0f3d33;color:var(--win)}.src.render{background:#1f2b4d;color:var(--accent-2)}.src.unset{background:#3d1220;color:var(--lose)}
 .set-actions{display:flex;gap:8px;flex-wrap:wrap}
+/* ---------- earn real money ---------- */
+.ec-money .earn-ic{background:linear-gradient(135deg,#2ee6a6,#0f7a5f)}
+.ways{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:8px 0 14px}
+.ways div{background:#0d1424;border:1px solid var(--line);border-radius:12px;padding:12px}.ways b{display:block}.ways span{color:var(--muted);font-size:.88rem}
+.terms{color:var(--muted);font-size:.9rem;padding-left:1.2em}.terms li{margin:.3em 0}
+.money-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px}.mcard small{display:block}.mcard b{font-size:1.5rem}
+.mcard.avail{background:linear-gradient(135deg,#0f3d33,#0d2a2a);border-color:#1d7a63}.mcard.avail b{color:var(--win)}
+@media (max-width:700px){.money-cards{grid-template-columns:1fr 1fr}}
+.opps{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.opp{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px}.opp p{color:var(--muted);font-size:.9rem;white-space:pre-wrap}
+.opp-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.opp-top b{color:var(--win)}.opp-top small{color:var(--muted)}
+.pill{font-size:.7rem;font-weight:800;padding:.15em .6em;border-radius:999px;text-transform:uppercase;letter-spacing:.05em}
+.k-contest{background:#2b1f6e;color:var(--accent-2)}.k-bounty{background:#3d1220;color:var(--lose)}.k-job{background:#3d2c08;color:var(--gold)}
+details summary{cursor:pointer;color:var(--accent-2);font-size:.85rem;margin:.3em 0}
+.money-admin{margin-bottom:14px}.ma-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+@media (max-width:1100px){.ma-grid{grid-template-columns:1fr}}
+.li-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.li-actions input{margin:0}
+.check.sm{font-size:.8rem;margin:0}

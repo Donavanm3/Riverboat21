@@ -500,7 +500,7 @@ $('#btnTestPaypal').onclick = async () => {
   try { const r = await api('/api/admin/settings/test-paypal', {}); toast(`PayPal keys work (${r.env})`); } catch (e) { toast(e.message); }
 };
 
-window.RB21 = { api, toast, fmt, esc, cardHTML, show, setMe: (u) => setMe(u), get me() { return me; } };
+window.RB21 = { api, toast, fmt, esc, cardHTML, show, openDialog: (h) => openDialog(h), get cfg() { return cfg; }, setMe: (u) => setMe(u), get me() { return me; } };
 
 // ---------- embedded (e.g. Google Sites) ----------
 let framed = false;
@@ -512,6 +512,17 @@ if (framed) {
   document.querySelector('.bar').appendChild(a);
   document.body.classList.add('framed');
 }
+
+// Referral links: https://…/?ref=CODE prefills the sign-up form.
+(() => {
+  const ref = new URLSearchParams(location.search).get('ref');
+  if (ref && /^[A-Za-z0-9]{4,16}$/.test(ref)) safeStorage.setItem('rb21_ref', ref.toUpperCase());
+  const saved = safeStorage.getItem('rb21_ref');
+  if (saved) {
+    $('#authForm').ref.value = saved;
+    if (ref) document.querySelector('.tabs [data-mode=register]').click();
+  }
+})();
 
 // ---------- boot ----------
 async function boot() {

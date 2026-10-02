@@ -154,6 +154,31 @@ The video card only appears where ads are set up. For testing the app before AdM
 test IDs: app `ca-app-pub-3940256099942544~3347511713`, rewarded unit `ca-app-pub-3940256099942544/5224354917`.
 `SIMULATE_ADS=true` shows a fake 10-second ad for trying the flow; never leave it on in production.
 
+## Earn real money (players)
+
+Players can't win money from the casino games themselves: those are games of chance, and paying in plus a cash
+payout is gambling that needs a license. The one game-related legal route is the free-entry real-prize tournaments
+already built. Everything else in this program pays for things players *do*, never for game results, and play credits
+can never be cashed out. Website only (hidden in the mobile apps and offline mode). Logic: `lib/money.js`.
+
+| Way to earn | How it works |
+|---|---|
+| Referral link | Each member gets a code/link. They earn a % (default 20%) of real purchases by people who signed up with it, for a window (default 365 days). Earnings are held (default 30 days) for refunds; refunded or cancelled purchases void them automatically. |
+| Creator codes | Admin gives streamers/YouTubers a custom code with its own % (e.g. `DEERAI` at 30%). |
+| Contests | Free-entry fan art / clip / guide contests with official rules (a template is pre-filled). Admin awards winners. |
+| Bug bounties | Players report bugs; admin awards what each report is worth. |
+| Paid jobs | Post roles (tournament host, moderator, translator, artist); applicants apply; pay through the same ledger. |
+| Cash tournament prizes | Cash prizes from free-entry tournaments land in the winner's balance automatically. |
+
+**Payouts:** players request their available balance to a PayPal email (minimum $10 by default). In Admin →
+Real-money program you send the money in PayPal, then press **Mark paid** (add the PayPal transaction ID). A payout can't
+be marked paid until you tick **W-9 received** for that player; collect W-9s by email and keep them offline (the app
+never stores tax IDs). The panel shows each player's total paid this year for 1099 reporting. You can void suspicious
+earnings, reject payouts (balance returns to the player), and change the %, window, hold and minimum.
+
+Rules built in: 18+ and terms acceptance to join, no self-referral, referral codes only at sign-up, disclosure reminder
+when sharing (FTC), up to 3 entries per contest. Have a lawyer review contest rules and program terms before launch.
+
 ## Settings & IDs (admin panel)
 
 Admin → **Settings & IDs** lets you paste the IDs and keys without touching Render: AdSense publisher ID and banner

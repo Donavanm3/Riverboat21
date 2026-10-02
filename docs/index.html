@@ -30,6 +30,7 @@
     <a href="#" data-go="lobby"><span class="ni">⌂</span>Home</a>
     <a href="#" data-go="earn"><span class="ni">＋</span>Earn credits</a>
     <a href="#" data-go="tournaments" class="online-only"><span class="ni">♛</span>Tournaments</a>
+    <a href="#" data-go="money" class="online-only app-hide"><span class="ni">$</span>Earn real money</a>
     <div class="side-games">
       <p class="side-label">Games</p>
       <a href="#" data-go="tables"><span class="dot g-bj"></span>Blackjack</a>
@@ -58,6 +59,7 @@
       <div class="tabs"><button type="button" data-mode="login" class="on">Sign in</button><button type="button" data-mode="register">Create account</button></div>
       <label>Email<input name="email" type="email" autocomplete="email" required></label>
       <label class="reg" hidden>Display name<input name="name" maxlength="20" autocomplete="nickname"></label>
+      <label class="reg" hidden>Referral code (optional)<input name="ref" maxlength="16" autocomplete="off" style="text-transform:uppercase"></label>
       <label>Password<input name="password" type="password" minlength="8" autocomplete="current-password" required></label>
       <button class="brass wide" id="authSubmit">Sign in</button>
       <p class="err" id="authErr"></p>
@@ -115,6 +117,10 @@
       <div class="earn-card ec-refill" id="refillCard">
         <span class="earn-ic">↺</span><div><h3>Empty wallet refill</h3><p id="refillStatus">Out of credits? Get a free refill.</p></div>
         <button class="cta" id="btnRefill">Refill</button>
+      </div>
+      <div class="earn-card ec-money online-only app-hide">
+        <span class="earn-ic">$</span><div><h3>Earn real money</h3><p>Refer friends, win contests and bug bounties, or take paid jobs. Paid by PayPal.</p></div>
+        <button class="cta" data-go="money">Open</button>
       </div>
       <div class="earn-card ec-store online-only app-hide">
         <span class="earn-ic">★</span><div><h3>Credit packs</h3><p>Get a bigger stack instantly, from $0.99.</p></div>
@@ -179,6 +185,63 @@
     <div class="controls"><div class="chips" id="bcChips"></div><button class="ghost act" id="bcClear">Clear</button><button class="brass act" id="bcDeal">Deal</button></div>
   </section>
 
+  <section id="v-money" class="view" hidden>
+    <div class="ghead"><h1>Earn real money</h1><span class="sub">Paid in US dollars by PayPal. Never from casino results: credits can’t be cashed out.</span></div>
+    <div id="mnyJoin" class="panel" hidden>
+      <h2>How you earn</h2>
+      <div class="ways">
+        <div><b>Refer friends</b><span id="mnyRateTxt">Earn a share of what people you invite spend on credit packs.</span></div>
+        <div><b>Contests</b><span>Free to enter: fan art, clips, strategy guides. Winners get cash.</span></div>
+        <div><b>Bug bounties</b><span>Find and report real bugs, get paid.</span></div>
+        <div><b>Paid jobs</b><span>Host tournaments, moderate, translate, make art.</span></div>
+        <div><b>Free tournaments</b><span>Cash prizes from free-entry tournaments are paid here too.</span></div>
+      </div>
+      <h3>Program terms</h3>
+      <ul class="terms">
+        <li>You must be 18 or older and allowed to receive payments where you live.</li>
+        <li>Referral earnings come only from real purchases by people who signed up with your code, and are held for <span class="mnyHold">30</span> days in case of refunds.</li>
+        <li>No self-referrals, fake accounts, spam, or paid ads that bid on our name. Abuse voids earnings.</li>
+        <li>When you share your link publicly, say you earn from it (for example “#ad” or “I get paid if you buy”).</li>
+        <li>We need a W-9 tax form (US) before your first payout. You’re responsible for taxes on what you earn.</li>
+        <li>Play credits can never be turned into money, and game wins never count as earnings.</li>
+      </ul>
+      <label class="check"><input type="checkbox" id="mnyAdult"> I’m 18 or older.</label>
+      <label class="check"><input type="checkbox" id="mnyAccept"> I accept the program terms.</label>
+      <button class="cta" id="mnyJoinBtn">Join the program</button>
+    </div>
+    <div id="mnyMain" hidden>
+      <div class="money-cards">
+        <div class="mcard avail"><small>Available</small><b id="mnyAvail">$0.00</b></div>
+        <div class="mcard"><small>Pending (refund hold)</small><b id="mnyPend">$0.00</b></div>
+        <div class="mcard"><small>Payout requested</small><b id="mnyReq">$0.00</b></div>
+        <div class="mcard"><small>Paid so far</small><b id="mnyPaid">$0.00</b></div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>Your referral link</h3>
+          <p class="sub" id="mnyRefTxt"></p>
+          <div class="betin"><input id="mnyLink" readonly><button class="mini" id="mnyCopy">Copy</button><button class="mini" id="mnyShare">Share</button></div>
+          <p class="fine">Code: <b id="mnyCode"></b> · <span id="mnyRefs">0 people</span> joined with it</p>
+          <div id="mnyCreator"></div>
+          <p class="fine">Tip: when posting your link, add “#ad” or say you earn from it.</p>
+        </div>
+        <div class="panel">
+          <h3>Get paid</h3>
+          <p class="sub" id="mnyMinTxt"></p>
+          <label>PayPal email<input id="mnyEmail" type="email" placeholder="you@example.com"></label>
+          <button class="cta wide" id="mnyPayout">Request payout</button>
+          <p class="fine" id="mnyW9"></p>
+        </div>
+      </div>
+      <h2>Contests, bounties &amp; jobs</h2>
+      <div id="mnyOpps" class="opps"></div>
+      <h3>Your entries</h3>
+      <div id="mnyMine" class="list"></div>
+      <h3>History</h3>
+      <div id="mnyLedger" class="list"></div>
+    </div>
+  </section>
+
   <section id="v-dice" class="view" hidden>
     <div class="ghead"><h1>Dice</h1><span class="sub">Roll 0–100 · 99% return</span></div>
     <div class="play">
@@ -240,6 +303,35 @@
   <section id="v-admin" class="view" hidden>
     <div class="ghead"><h1>Admin</h1><button class="cta" id="btnGiftAll">Gift every player</button></div>
     <p class="panel note" id="adsHint" hidden>Video ads are off. Add your AdSense or AdMob IDs in <b>Settings &amp; IDs</b> below to turn on “Watch a video” for players.</p>
+    <div class="panel money-admin" id="mnyAdmin">
+      <div class="set-head"><h2>Real-money program</h2><span class="sub" id="maTotals"></span></div>
+      <div class="ma-grid">
+        <div>
+          <h3>Payout requests</h3><div id="maPayouts" class="list"></div>
+          <h3>Entries to review</h3><div id="maSubs" class="list"></div>
+          <h3>Recent earnings</h3><div id="maEarn" class="list"></div>
+          <h3>Paid out</h3><div id="maPaid" class="list"></div>
+        </div>
+        <div>
+          <h3>Program settings</h3>
+          <div class="row"><label>Referral %<input id="maPct" type="number" min="0" max="50" step="0.5"></label><label>Window (days)<input id="maWin" type="number" min="1"></label></div>
+          <div class="row"><label>Refund hold (days)<input id="maHold" type="number" min="0"></label><label>Min payout ($)<input id="maMin" type="number" min="1" step="1"></label></div>
+          <button class="ghost sm" id="maSaveSet">Save program settings</button>
+          <h3>Creator codes</h3>
+          <div class="row"><label>Player email<input id="maCodeEmail" type="email"></label><label>Code<input id="maCode" maxlength="16" style="text-transform:uppercase"></label></div>
+          <div class="row"><label>Commission %<input id="maCodePct" type="number" min="0" max="50" value="30"></label><label>&nbsp;<button class="ghost wide" id="maAddCode" type="button">Save code</button></label></div>
+          <div id="maCodes" class="list"></div>
+          <h3>Post a contest, bounty, or job</h3>
+          <div class="row"><label>Type<select id="maKind"><option value="contest">Contest (free entry)</option><option value="bounty">Bug bounty</option><option value="job">Paid job</option></select></label><label>Ends (optional)<input id="maEnds" type="datetime-local"></label></div>
+          <label>Title<input id="maTitle" maxlength="80"></label>
+          <label>Pays<input id="maReward" maxlength="120" placeholder="$50 to the winner"></label>
+          <label>Description<textarea id="maDesc" rows="3"></textarea></label>
+          <label>Official rules (required for contests)<textarea id="maRules" rows="4"></textarea></label>
+          <button class="cta wide" id="maPost" type="button">Post it</button>
+          <div id="maOpps" class="list"></div>
+        </div>
+      </div>
+    </div>
     <form id="setForm" class="panel settings">
       <div class="set-head"><h2>Settings &amp; IDs</h2><span class="sub" id="setUpdated"></span></div>
       <p class="fine">Saved values work right away (players see ad changes next time they open the game) and override the ones in Render. Leave a box empty to use Render’s value.</p>
@@ -345,5 +437,6 @@
 <script src="app.js"></script>
 <script src="games.js"></script>
 <script src="games2.js"></script>
+<script src="money.js"></script>
 </body>
 </html>

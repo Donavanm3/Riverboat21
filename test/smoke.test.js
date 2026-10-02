@@ -194,6 +194,7 @@ let server, store;
   while (d.round.phase === 'playing') d = await call(sa, 'tour:act', { id: cash.body.id, action: 'stand' });
   r = await api(`/api/admin/tournaments/${cash.body.id}/finish`, {}, admin.token);
   assert.strictEqual(r.body.winners[0].prize, '$100 PayPal'); assert.strictEqual(r.body.winners[0].email, 'a@test.dev');
+  assert.ok(store.data.earnings.some((e) => e.uid === A.user.id && e.kind === 'tournament' && e.cents === 10000), 'cash prize in payout ledger');
   assert.strictEqual(r.body.winners.length, 1);
   r = await api(`/api/admin/tournaments/${cash.body.id}/prize`, { place: 1, status: 'sent' }, admin.token);
   assert.strictEqual(r.body.winners[0].prizeStatus, 'sent');
@@ -277,6 +278,33 @@ let server, store;
   r = await api('/api/admin/settings', { adsenseClient: '', adsenseBannerSlot: '', admobRewardedId: '', admobRewardedIdIos: '', paypalClientId: '', clearPaypalSecret: true }, admin.token);
   assert.strictEqual(r.body.source.paypalClientId, 'render'); assert.strictEqual(r.body.paypalSecretSource, 'render');
   cfgPub = (await api("/api/config")).body; assert.strictEqual(cfgPub.paypalClientId, "test-client"); assert.strictEqual(cfgPub.adsenseClient, "");
+
+  // Earn-real-money program: referral commission from a real (fake PayPal) purchase
+  assert.strictEqual((await api('/api/money/join', {}, A.token)).status, 400, 'terms required');
+  let mv = (await api('/api/money/join', { adult: true, accept: true }, A.token)).body;
+  assert.ok(mv.code && mv.link.includes('?ref=' + mv.code));
+  const C = (await api('/api/auth/register', { email: 'c@test.dev', name: 'Cal', password: 'password123', ref: mv.code })).body;
+  assert.strictEqual(store.data.users[C.user.id].referredBy.uid, A.user.id);
+  let oc = await api('/api/paypal/orders', { kind: 'pack', packId: 'pack_30k' }, C.token);
+  assert.strictEqual((await api(`/api/paypal/orders/${oc.body.id}/capture`, {}, C.token)).status, 200);
+  mv = (await api('/api/money', null, A.token)).body;
+  assert.strictEqual(mv.referrals, 1); assert.strictEqual(mv.balances.pendingCents, 99, '20% of $4.99');
+  assert.strictEqual((await api('/api/admin/money', null, A.token)).status, 403);
+  // contest -> submission -> award
+  r = await api('/api/admin/money/opps', { kind: 'bounty', title: 'Bug bounty', description: 'Report a reproducible bug', reward: '$5 to $100' }, admin.token);
+  const oppId = r.body.opps[0].id;
+  r = await api(`/api/opportunities/${oppId}/submit`, { message: 'Roulette rebet doubles chips sometimes', adult: true }, C.token);
+  assert.strictEqual(r.status, 200); const subId = r.body.mine[0].id;
+  r = await api(`/api/admin/money/submissions/${subId}/award`, { dollars: 25 }, admin.token); assert.strictEqual(r.status, 200);
+  assert.strictEqual((await api('/api/money', null, C.token)).body.balances.availableCents, 2500);
+  // payout needs W-9 before it can be marked paid
+  await api('/api/money/join', { adult: true, accept: true }, C.token);
+  r = await api('/api/money/payout', { paypalEmail: 'cal@paypal.dev' }, C.token); assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+  const pid = (await api('/api/admin/money', null, admin.token)).body.payouts[0].id;
+  assert.match((await api(`/api/admin/money/payouts/${pid}/paid`, {}, admin.token)).body.error, /W-9/);
+  await api(`/api/admin/money/w9/${C.user.id}`, { onFile: true }, admin.token);
+  assert.strictEqual((await api(`/api/admin/money/payouts/${pid}/paid`, { note: 'txn 1' }, admin.token)).status, 200);
+  assert.strictEqual((await api('/api/money', null, C.token)).body.balances.paidCents, 2500);
 
   // Admin credit adjust and suspend
   r = await api(`/api/admin/users/${B.user.id}/credits`, { amount: 5000 }, admin.token); assert.strictEqual(r.status, 200);
